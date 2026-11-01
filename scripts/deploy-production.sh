@@ -35,7 +35,7 @@ docker compose --env-file .env.prod -f docker-compose.prod.yml exec -T app php a
 docker compose --env-file .env.prod -f docker-compose.prod.yml restart app queue nginx
 
 for attempt in {1..30}; do
-    if curl --connect-timeout 5 --max-time 10 --fail --silent --show-error https://lions.devicesperu.com/up >/dev/null; then
+    if curl --connect-timeout 5 --max-time 10 --fail --silent --show-error https://lions.devicesperu.com/ >/dev/null; then
         echo "Lions production is healthy."
         exit 0
     fi
