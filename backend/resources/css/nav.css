@@ -14,9 +14,9 @@ body{font-size:15px;background:#f5f3ed}
 .nav-label{font-size:11px;letter-spacing:1.5px;margin-bottom:7px}
 .sidebar .nav-item{gap:12px;min-height:56px;padding:9px 10px;margin:4px 0;border-radius:12px;font-size:14px;line-height:1.35}
 .sidebar .nav-item.active{background:linear-gradient(100deg,#37342c,#2b2925);box-shadow:inset 4px 0 #c7a34a,0 5px 16px #09090930}
-.module-code.module-icon{position:relative;width:40px;height:40px;min-width:40px;border:1px solid #9b7830;border-radius:12px;background:linear-gradient(145deg,#37342d,#24252a);box-shadow:0 3px 10px #0004;color:#fff;display:grid;place-items:center;font-size:21px;line-height:1}
+.module-code.module-icon{position:relative;width:40px;height:40px;min-width:40px;border:0;border-radius:12px;background:linear-gradient(145deg,#37342d,#24252a);box-shadow:0 3px 10px #0004;color:#fff;display:grid;place-items:center;font-size:21px;line-height:1}
 .module-icon>span{font-size:20px;filter:saturate(.85)}
-.nav-item.active .module-icon{background:linear-gradient(145deg,#9b7830,#6f5522);border-color:#e5c76d;transform:scale(1.04)}
+.nav-item.active .module-icon{background:linear-gradient(145deg,#9b7830,#6f5522);transform:scale(1.04)}
 .sidebar .nav-item>span:last-child{font-size:14px;line-height:1.35}
 .module-state{font-size:10px;letter-spacing:.75px;margin-top:5px}
 .topbar{height:78px;padding:0 40px}
