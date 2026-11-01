@@ -22,7 +22,11 @@ else
     git reset --hard origin/main
 fi
 
-docker compose --env-file .env.prod -f docker-compose.prod.yml build app
+if [ "${LIONS_SKIP_BUILD:-0}" = "1" ]; then
+    docker image inspect lions-app:production >/dev/null
+else
+    docker compose --env-file .env.prod -f docker-compose.prod.yml build app
+fi
 docker compose --env-file .env.prod -f docker-compose.prod.yml up -d db
 docker compose --env-file .env.prod -f docker-compose.prod.yml run --rm --no-deps public-sync
 docker compose --env-file .env.prod -f docker-compose.prod.yml up -d --remove-orphans
