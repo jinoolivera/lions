@@ -1,0 +1,39 @@
+name: Deploy Lions production
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: lions-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate production files
+        run: |
+          test -f docker-compose.prod.yml
+          test -f backend/Dockerfile.prod
+          test -f deployment/nginx.conf
+
+      - name: Configure SSH
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.LIONS_PROD_SSH_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.LIONS_PROD_KNOWN_HOSTS }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/lions_deploy
+          chmod 600 ~/.ssh/lions_deploy
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+
+      - name: Trigger fixed server deployment
+        run: ssh -i ~/.ssh/lions_deploy -o BatchMode=yes lions-deploy@209.38.140.37

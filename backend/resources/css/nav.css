@@ -1,0 +1,114 @@
+.heading-actions{display:flex;gap:8px}
+.nav-item{width:100%;border:0;background:transparent;text-align:left}
+.nav-item:focus-visible{outline:2px solid #d3ee82;outline-offset:2px}
+@media(max-width:850px){.nav-item span:last-child{display:none}.nav-item span:first-child{display:block}}
+@media(max-width:560px){.heading-actions{width:100%}.heading-actions .button{flex:1}}
+
+/* Larger, higher-contrast Lions visual system */
+:root{font-size:15px;color:#20231f;background:#f5f3ed}
+body{font-size:15px;background:#f5f3ed}
+.shell{grid-template-columns:270px 1fr}
+.sidebar{padding:28px 18px;gap:32px;background:linear-gradient(180deg,#191a1e 0%,#23211d 100%)}
+.brand-logo{width:54px;height:54px;border-radius:12px}
+.brand{gap:13px;font-size:19px}
+.nav-label{font-size:11px;letter-spacing:1.5px;margin-bottom:7px}
+.sidebar .nav-item{gap:12px;min-height:56px;padding:9px 10px;margin:4px 0;border-radius:12px;font-size:14px;line-height:1.35}
+.sidebar .nav-item.active{background:linear-gradient(100deg,#37342c,#2b2925);box-shadow:inset 4px 0 #c7a34a,0 5px 16px #09090930}
+.module-code.module-icon{position:relative;width:40px;height:40px;min-width:40px;border:1px solid #9b7830;border-radius:12px;background:linear-gradient(145deg,#37342d,#24252a);box-shadow:0 3px 10px #0004;color:#fff;display:grid;place-items:center;font-size:21px;line-height:1}
+.module-icon>span{font-size:20px;filter:saturate(.85)}
+.nav-item.active .module-icon{background:linear-gradient(145deg,#9b7830,#6f5522);border-color:#e5c76d;transform:scale(1.04)}
+.sidebar .nav-item>span:last-child{font-size:14px;line-height:1.35}
+.module-state{font-size:10px;letter-spacing:.75px;margin-top:5px}
+.topbar{height:78px;padding:0 40px}
+.topbar{height:66px}
+.breadcrumb{display:flex;align-items:center;gap:11px;color:#aaa18d;font-size:12px}
+.breadcrumb>span{font-size:11px;text-transform:uppercase;letter-spacing:1px}
+.breadcrumb>b{color:#29271f;font-size:17px;font-weight:800;letter-spacing:-.2px}
+.user-chip{font-size:14px;gap:12px}
+.avatar{width:40px;height:40px;font-size:16px}
+.content{max-width:1500px;padding:24px 40px 38px}
+.heading{margin-bottom:16px;align-items:center}
+.heading-description{font-size:14px!important;line-height:1.45!important;color:#7d7a70!important;margin:0!important}
+.eyebrow{font-size:11px;letter-spacing:1.5px}
+.button{border-radius:11px;padding:13px 18px;font-size:14px;box-shadow:0 3px 8px #37280918;transition:transform .16s ease,box-shadow .16s ease,background .16s ease}
+.button:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 7px 16px #37280924}
+.button:disabled{opacity:.55;cursor:not-allowed}
+.button.light{border:1px solid #e8dfca}
+.heading-actions{flex-wrap:wrap}
+.stats{gap:16px;margin-bottom:20px}
+.stat,.panel{border-color:#e7e1d3;border-radius:17px;box-shadow:0 5px 18px #342c1a0b}
+.stat{position:relative;min-height:130px;padding:21px 22px;background:linear-gradient(135deg,#fff 0%,#fbf9f3 100%);overflow:hidden;transition:transform .18s ease,box-shadow .18s ease}
+.stat:hover{transform:translateY(-3px);box-shadow:0 12px 26px #342c1a16}
+.stat:before{content:"";position:absolute;left:0;top:0;bottom:0;width:5px;background:linear-gradient(180deg,#d2b259,#98732d)}
+.stat:after{content:"✦";position:absolute;right:17px;top:12px;width:31px;height:31px;display:grid;place-items:center;border-radius:10px;background:#f1ead7;color:#9a772f;font-size:17px}
+.stat-label{font-size:13px;font-weight:700;color:#73766e;letter-spacing:.2px;padding-right:38px}
+.stat-value{font-size:29px;line-height:1.15;margin-top:13px;color:#28261f}
+.stat-note{font-size:12px;line-height:1.5;color:#89877e;margin-top:7px}
+.report-stats{column-gap:24px;row-gap:24px;margin-bottom:26px}
+.report-stats>.stat{border:1px solid #e2d8c2;border-radius:18px;box-shadow:0 8px 22px #36290d12}
+.report-stats>.stat:hover{box-shadow:0 13px 28px #36290d1b}
+.panel{background:#fff}
+.toolbar{padding:17px 20px;font-size:14px}
+.toolbar strong{font-size:15px}
+.search{font-size:14px;padding:12px 14px;border-radius:10px}
+th{padding:14px 18px;font-size:11px;letter-spacing:.9px;color:#716c5f}
+td{padding:16px 18px;font-size:14px;line-height:1.45}
+td strong{font-size:14px}
+tbody tr{transition:background .14s ease}
+tbody tr:hover{background:#fcfaf5}
+.muted{font-size:13px;line-height:1.5;color:#7d8179}
+.sku{font-size:11px}
+.badge{padding:7px 11px;font-size:12px}
+.badge:before{width:7px;height:7px}
+.icon-btn{border-color:#e2dac7;border-radius:9px;color:#5c5545;padding:9px 12px;font-size:12px;font-weight:600;transition:background .15s ease,border-color .15s ease,transform .15s ease}
+.icon-btn:hover{background:#f8f2e4;border-color:#c9aa5e;color:#4d3c19;transform:translateY(-1px)}
+.empty{padding:52px 24px;font-size:14px}
+.field{gap:8px}
+.field label{font-size:12px;color:#514f48}
+.field input,.field select{padding:12px 13px;font-size:14px;border-radius:10px}
+.field small{font-size:12px;line-height:1.5}
+.modal{border-radius:19px;box-shadow:0 26px 90px #15130d45}
+.modal-head{padding:22px 26px}
+.modal-head h2{font-size:20px}
+.modal-body{padding:25px 26px}
+.modal-foot{padding:17px 26px}
+.alert,.toast{font-size:14px;padding:14px 16px;border-radius:11px}
+.pending-panel{padding:30px;background:linear-gradient(145deg,#fff 0%,#fcf8ed 100%)}
+.pending-panel h2{font-size:22px}
+.pending-panel p{font-size:15px;line-height:1.7}
+.billing-status-grid>div{padding:16px;border-radius:12px;background:linear-gradient(140deg,#fff,#f8f4e8);box-shadow:0 3px 10px #342c1a0b}
+.billing-status-grid strong{font-size:15px}
+.billing-status-grid .muted{font-size:12px}
+.tpv-status{padding:16px 20px;border-color:#e4dcc8;border-radius:14px;font-size:14px;box-shadow:0 4px 14px #3027110c}
+.tpv-status .badge{font-size:12px}
+.pos-picker,.pos-checkout{border-color:#e5dcc7;border-radius:16px;box-shadow:0 5px 18px #342c1a0a}
+.pos-picker{padding:22px}
+.pos-picker>.field input{font-size:17px;padding:15px}
+.pos-result{padding:15px;font-size:14px}
+.pos-result strong{font-size:15px}
+.pos-result small,.pos-line-name small{font-size:12px}
+.pos-section-title{font-size:15px;padding:15px 17px}
+.pos-section-title span{font-size:12px}
+.pos-line{font-size:14px;padding:14px 0}
+.pos-line input,.pos-payment input,.pos-payment select{font-size:13px;padding:10px;border-radius:9px}
+.pos-empty{font-size:14px;padding:34px}
+.pos-total{padding:18px 20px;font-size:16px;background:linear-gradient(90deg,#f9f6ee,#f3ecd9)}
+.pos-total strong{font-size:25px}
+.pos-charge{font-size:16px;padding:17px}
+.pos-hint{font-size:12px}
+.sale-detail-grid>div{padding:16px;border-radius:12px;background:linear-gradient(135deg,#fff,#fbf9f3)}
+.sale-detail-grid small{font-size:12px}
+.sale-detail-grid strong{font-size:15px}
+.sale-detail-totals{padding:18px;border-radius:13px;font-size:16px;background:#f8f4e8}
+.sale-detail-row{font-size:14px;padding:12px 0}
+.sale-detail .panel{padding:18px}
+.report-filters label{font-size:13px}
+.report-filters input,.report-filters select{font-size:14px;padding:11px;border-radius:9px}
+.quick-periods .button,.quick-periods .button.light{padding:10px 14px;font-size:13px}
+.login-card{width:min(440px,calc(100% - 32px));padding:36px;border-radius:20px;box-shadow:0 22px 70px #0003}
+.login-card h1{font-size:29px}
+.login-card p{font-size:15px}
+.login-card .field label{font-size:13px}
+.login-card .field input{padding:14px;font-size:15px}
+@media(max-width:850px){.shell{grid-template-columns:78px 1fr}.sidebar{padding:24px 10px}.nav-item{width:54px;height:54px}.sidebar .nav-item{justify-content:center;padding:0}.module-code.module-icon{width:42px;height:42px}.topbar{padding:0 22px}.content{padding:21px 22px 32px}.stats .stat:last-child{display:block}.report-stats{column-gap:20px;row-gap:20px}}
+@media(max-width:560px){.shell{grid-template-columns:1fr}.topbar{height:60px;padding:0 14px}.breadcrumb{gap:7px}.breadcrumb>b{font-size:15px}.content{padding:16px 14px 24px}.heading{align-items:flex-start;gap:10px;flex-direction:column}.heading-description{font-size:13px!important}.stats{grid-template-columns:1fr 1fr;gap:10px}.report-stats{column-gap:14px;row-gap:14px;margin-bottom:18px}.stat{min-height:112px;padding:16px 15px}.stat-value{font-size:22px}.stat-label{font-size:11px}.stat-note{font-size:10px}.stat:after{width:25px;height:25px;right:10px;top:10px;font-size:13px}.toolbar{padding:14px;gap:8px}th{padding:12px;font-size:10px}td{padding:13px 12px;font-size:13px}.modal-head h2{font-size:18px}.modal-body{padding:19px 16px}.modal-foot{padding:14px 16px}.sale-detail-row{font-size:13px}}
