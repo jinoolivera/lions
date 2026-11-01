@@ -22,7 +22,7 @@ function App() {
     const [purchaseCurrency, setPurchaseCurrency] = useState('PEN'), [purchaseExchangeRate, setPurchaseExchangeRate] = useState('1');
     const [purchaseExchangeRateDate, setPurchaseExchangeRateDate] = useState(new Date().toLocaleDateString('en-CA'));
     const [financeData, setFinanceData] = useState({ categories: [], transactions: [] }), [financeType, setFinanceType] = useState('expense');
-    const [movements, setMovements] = useState([]), [cashSessions, setCashSessions] = useState([]), [sales, setSales] = useState([]), [tab, setTab] = useState('catalog');
+    const [movements, setMovements] = useState([]), [cashSessions, setCashSessions] = useState([]), [sales, setSales] = useState([]), [tab, setTab] = useState('sales');
     const [warehouseId, setWarehouseId] = useState(''), [search, setSearch] = useState('');
     const [movementWarehouseId, setMovementWarehouseId] = useState(''), [movementLocationId, setMovementLocationId] = useState('');
     const [locationWarehouseId, setLocationWarehouseId] = useState('');
@@ -478,10 +478,10 @@ function App() {
         <datalist id="unit-options">{knownUnits.map((unit) => <option key={unit} value={unit} />)}</datalist>
         <aside className="sidebar"><div className="brand"><img className="brand-logo" src="/images/lions-logo.jpeg" alt="U.Lions Import" /><b className="brand-name">U.LIONS<br/><small>IMPORT</small></b></div>
             <div><div className="nav-label">Módulos del ERP</div>
+                <button className={'nav-item ' + (tab === 'sales' ? 'active' : '')} onClick={() => setTab('sales')}><span className="module-code module-icon">🧾</span><span>Ventas y TPV</span></button>
                 <button className={'nav-item ' + (tab === 'catalog' ? 'active' : '')} onClick={() => setTab('catalog')}><span className="module-code module-icon">📦</span><span>Productos y presentaciones</span></button>
                 <button className={'nav-item ' + (tab === 'movements' ? 'active' : '')} onClick={() => setTab('movements')}><span className="module-code module-icon">🏬</span><span>Almacenes e inventario</span></button>
                 <button className={'nav-item ' + (tab === 'purchases' ? 'active' : '')} onClick={() => setTab('purchases')}><span className="module-code module-icon">🛒</span><span>Compras y recepciones</span></button>
-                <button className={'nav-item ' + (tab === 'sales' ? 'active' : '')} onClick={() => setTab('sales')}><span className="module-code module-icon">🧾</span><span>Ventas y TPV</span></button>
                 <button className={'nav-item ' + (tab === 'customers' ? 'active' : '')} onClick={() => setTab('customers')}><span className="module-code module-icon">👥</span><span>Clientes y cobranzas</span></button>
                 <button className={'nav-item ' + (tab === 'orders' ? 'active' : '')} onClick={() => setTab('orders')}><span className="module-code module-icon">🚚</span><span>Pedidos y despachos</span></button>
                 <button className={'nav-item ' + (tab === 'finance' ? 'active' : '')} onClick={() => setTab('finance')}><span className="module-code module-icon">💰</span><span>Finanzas</span></button>
