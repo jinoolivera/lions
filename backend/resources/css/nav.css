@@ -47,6 +47,8 @@ body{font-size:15px;background:#f5f3ed}
 .report-stats{column-gap:24px;row-gap:24px;margin-bottom:26px}
 .report-stats>.stat{border:1px solid #e2d8c2;border-radius:18px;box-shadow:0 8px 22px #36290d12}
 .report-stats>.stat:hover{box-shadow:0 13px 28px #36290d1b}
+.report-filters~.panel{margin-bottom:22px;overflow:hidden}
+.report-filters~.panel>.muted{display:block;margin:12px 20px 18px}
 .panel{background:#fff}
 .toolbar{padding:17px 20px;font-size:14px}
 .toolbar strong{font-size:15px}
