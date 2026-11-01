@@ -69,7 +69,7 @@ return new class extends Migration
             $table->decimal('quantity', 18, 6);
             $table->unsignedBigInteger('unit_cost_cents');
             $table->timestamps();
-            $table->index(['purchase_receipt_id', 'purchase_order_line_id']);
+            $table->index(['purchase_receipt_id', 'purchase_order_line_id'], 'purchase_receipt_lines_order_line_idx');
         });
 
         Schema::create('supplier_invoices', function (Blueprint $table): void {

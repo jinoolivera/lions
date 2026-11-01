@@ -21,7 +21,7 @@ return new class extends Migration
             $table->timestamp('shipped_at');
             $table->timestamp('received_at')->nullable();
             $table->timestamps();
-            $table->index(['source_warehouse_id', 'destination_warehouse_id', 'status']);
+            $table->index(['source_warehouse_id', 'destination_warehouse_id', 'status'], 'stock_transfers_source_dest_status_idx');
         });
 
         Schema::create('stock_transfer_lines', function (Blueprint $table): void {
@@ -55,7 +55,7 @@ return new class extends Migration
             $table->foreignId('stock_transfer_line_id')->constrained()->restrictOnDelete();
             $table->decimal('quantity', 18, 6);
             $table->timestamps();
-            $table->index(['stock_transfer_receipt_id', 'stock_transfer_line_id']);
+            $table->index(['stock_transfer_receipt_id', 'stock_transfer_line_id'], 'transfer_receipt_lines_receipt_line_idx');
         });
     }
 

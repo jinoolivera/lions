@@ -86,7 +86,7 @@ return new class extends Migration
             $table->char('payload_hash', 64);
             $table->timestamp('occurred_at');
             $table->timestamps();
-            $table->index(['product_id', 'warehouse_location_id', 'occurred_at']);
+            $table->index(['product_id', 'warehouse_location_id', 'occurred_at'], 'inv_mov_prod_loc_occurred_idx');
         });
 
         DB::table('warehouses')->insert([
