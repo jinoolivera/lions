@@ -93,6 +93,15 @@ tbody tr:hover{background:#fcfaf5}
 .pos-section-title span{font-size:12px}
 .pos-line{font-size:14px;padding:14px 0}
 .pos-line input,.pos-payment input,.pos-payment select{font-size:13px;padding:10px;border-radius:9px}
+.pos-line{display:flex;flex-wrap:wrap;gap:8px;align-items:end}
+.pos-line-name{flex:1 1 100%}
+.pos-line>input{width:75px;min-width:0}
+.pos-line>strong{margin-left:auto;white-space:nowrap}
+.pos-price-field{display:grid;gap:4px;font-size:12px;font-weight:700;color:#5c5545}
+.pos-price-field input{width:105px;max-width:100%}
+.ticket-email-input{min-width:180px;min-height:44px;padding:10px 12px;border:1px solid #d9d1bd;border-radius:10px;font-size:14px}
+.modal-foot.no-print{flex-wrap:wrap}
+@media(max-width:700px){.ticket-email-input{width:100%;font-size:16px}.pos-line>input{width:70px}}
 .pos-empty{font-size:14px;padding:34px}
 .pos-total{padding:18px 20px;font-size:16px;background:linear-gradient(90deg,#f9f6ee,#f3ecd9)}
 .pos-total strong{font-size:25px}

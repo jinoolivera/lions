@@ -11,6 +11,7 @@
         "laravel/framework": "^13.17",
         "laravel/sanctum": "^4.0",
         "laravel/tinker": "^3.0",
+        "resend/resend-php": "^1.0",
         "robrichards/xmlseclibs": "^3.1"
     },
     "require-dev": {

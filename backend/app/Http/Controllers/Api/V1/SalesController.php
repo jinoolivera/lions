@@ -13,11 +13,25 @@ use App\Services\SunatCpeService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
 
 class SalesController extends Controller
 {
+    public function emailTicket(Request $request, Sale $sale): JsonResponse
+    {
+        $data = $request->validate(['email' => ['required', 'email', 'max:254']]);
+        if (config('mail.default') !== 'resend' || ! config('services.resend.key')) {
+            return response()->json(['message' => 'Configura Resend para enviar tickets por correo.'], 503);
+        }
+        $sale->load(['lines', 'payments']);
+        Mail::send('emails.sale-ticket', ['sale' => $sale], function ($message) use ($data, $sale) {
+            $message->to($data['email'])->subject('Ticket de venta '.$sale->sale_number.' · U.LIONS');
+        });
+        return response()->json(['message' => 'Ticket enviado por correo.']);
+    }
+
     public function index(Request $request): JsonResponse
     {
         $warehouseId = $request->integer('warehouse_id');
@@ -90,6 +104,7 @@ class SalesController extends Controller
             'price_list' => ['sometimes', 'in:retail,wholesale'],
             'lines.*.product_id' => ['required', 'integer', 'exists:products,id'], 'lines.*.presentation_id' => ['required', 'integer', 'exists:product_presentations,id'],
             'lines.*.quantity' => ['required', 'numeric', 'gt:0', 'max:999999999999'],
+            'lines.*.unit_price_cents' => ['sometimes', 'integer', 'min:1', 'max:999999999999'],
             'lines.*.discount_cents' => ['sometimes', 'integer', 'min:0', 'max:999999999999'],
             'payments' => ['present', 'array', 'max:10'], 'payments.*.method' => ['required', 'in:cash,card,transfer,other'],
             'payments.*.amount_cents' => ['required', 'integer', 'min:1', 'max:999999999999'], 'payments.*.reference' => ['nullable', 'string', 'max:120'],

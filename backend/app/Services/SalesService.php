@@ -27,7 +27,7 @@ class SalesService
         $normalized['price_list'] = $data['price_list'] ?? 'retail';
         $normalized['warehouse_location_id'] = $data['warehouse_location_id'] ?? null;
         $normalized['lines'] = collect($data['lines'])->map(fn ($line) => [
-            'product_id' => (int) $line['product_id'], 'presentation_id' => (int) $line['presentation_id'], 'quantity' => (string) $line['quantity'], 'discount_cents' => (int) ($line['discount_cents'] ?? 0),
+            'product_id' => (int) $line['product_id'], 'presentation_id' => (int) $line['presentation_id'], 'quantity' => (string) $line['quantity'], 'discount_cents' => (int) ($line['discount_cents'] ?? 0), 'unit_price_cents' => isset($line['unit_price_cents']) ? (int) $line['unit_price_cents'] : null,
         ])->all();
         $normalized['payments'] = collect($data['payments'] ?? [])->map(fn ($payment) => [
             'method' => $payment['method'], 'amount_cents' => (int) $payment['amount_cents'], 'reference' => $payment['reference'] ?? null,
@@ -65,6 +65,12 @@ class SalesService
                 }
                 $unitPrice = ($data['price_list'] ?? 'retail') === 'wholesale' && $presentation->wholesale_price_cents !== null
                     ? (int) $presentation->wholesale_price_cents : (int) $presentation->price_cents;
+                if (isset($line['unit_price_cents'])) {
+                    if (! in_array($seller->role, ['admin', 'manager'], true)) {
+                        throw ValidationException::withMessages(['lines' => 'Solo gerencia puede cambiar el precio de venta.']);
+                    }
+                    $unitPrice = (int) $line['unit_price_cents'];
+                }
                 $lineTotal = $quantity->multipliedBy((string) $unitPrice)->toScale(0, RoundingMode::HALF_UP)->toInt();
                 $discount = (int) ($line['discount_cents'] ?? 0);
                 if ($discount > $lineTotal) throw ValidationException::withMessages(['lines' => "El descuento de {$product->name} supera el importe de la línea."]);
