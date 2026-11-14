@@ -25,6 +25,12 @@ fi
 if [ "${LIONS_SKIP_BUILD:-0}" = "1" ]; then
     docker image inspect lions-app:production >/dev/null
 else
+    available_kb=$(df -Pk /var/lib/docker | awk 'NR == 2 { print $4 }')
+    if [ "$available_kb" -lt 4194304 ]; then
+        echo "Freeing unused Docker build cache and images before building Lions."
+        docker builder prune -f
+        docker image prune -a -f
+    fi
     docker compose --env-file .env.prod -f docker-compose.prod.yml build app
 fi
 docker compose --env-file .env.prod -f docker-compose.prod.yml up -d db
