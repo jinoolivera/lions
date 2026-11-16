@@ -133,15 +133,43 @@ function App() {
         if (!modal?.sale || !ticketEmail.trim()) return;
         try {
             await axios.post(`/api/v1/sales/${modal.sale.id}/ticket/email`, { email: ticketEmail.trim() });
-            notify('Ticket enviado por correo.');
+            notify('Ticket PDF enviado por correo.');
         } catch (e) { setError(e.response?.data?.message || 'No se pudo enviar el ticket.'); }
     }
-    function shareTicketWhatsApp(sale) {
-        const lines = (sale.lines || []).map((line) => `${line.product_name_snapshot} · ${line.quantity} × S/ ${(line.unit_price_cents / 100).toFixed(2)} = S/ ${(line.line_total_cents / 100).toFixed(2)}`);
-        const message = ['U.LIONS IMPORT · Ticket de venta', sale.sale_number, ...lines, `Total: S/ ${(sale.total_cents / 100).toFixed(2)}`, 'Gracias por su compra.'].join('\n');
-        window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank', 'noopener,noreferrer');
+    async function ticketPdfUrl(sale) {
+        const { data } = await axios.get(`/api/v1/sales/${sale.id}/ticket/link`);
+        return data.url;
     }
-    async function submitSale(event) {
+    async function downloadTicketPdf(sale) {
+        const popup = window.open('', '_blank');
+        try { const url = await ticketPdfUrl(sale); if (popup) popup.location.href = url; else window.location.href = url; }
+        catch (e) { popup?.close(); setError(e.response?.data?.message || 'No se pudo generar el PDF.'); }
+    }
+    async function shareTicketPdf(sale) {
+        try {
+            const url = await ticketPdfUrl(sale);
+            const response = await fetch(url);
+            if (!response.ok) throw new Error('No se pudo descargar el PDF.');
+            const file = new File([await response.blob()], `ticket-${sale.sale_number}.pdf`, { type: 'application/pdf' });
+            if (navigator.canShare?.({ files: [file] })) {
+                await navigator.share({ files: [file], title: `Ticket ${sale.sale_number}` });
+            } else {
+                const fileUrl = URL.createObjectURL(file);
+                const link = document.createElement('a');
+                link.href = fileUrl; link.download = file.name; link.click();
+                setTimeout(() => URL.revokeObjectURL(fileUrl), 1000);
+                notify('PDF descargado. Puedes adjuntarlo en WhatsApp.');
+            }
+        } catch (e) { if (e.name !== 'AbortError') setError(e.message || 'No se pudo compartir el PDF.'); }
+    }    async function shareTicketWhatsApp(sale) {
+        const popup = window.open('', '_blank');
+        try {
+            const url = await ticketPdfUrl(sale);
+            const message = `U.LIONS IMPORT · Ticket de venta ${sale.sale_number}\nPDF: ${url}`;
+            if (popup) popup.location.href = `https://wa.me/?text=${encodeURIComponent(message)}`;
+            else window.location.href = `https://wa.me/?text=${encodeURIComponent(message)}`;
+        } catch (e) { popup?.close(); setError(e.response?.data?.message || 'No se pudo compartir el PDF.'); }
+    }    async function submitSale(event) {
         event.preventDefault(); setError('');
         const payments = salePayments.map((payment) => ({ ...payment, amount_cents: Math.round(Number(payment.amount || 0) * 100) })).filter((payment) => payment.amount_cents > 0).map(({ method, amount_cents, reference }) => ({ method, amount_cents, reference: reference || null }));
         if (!activeCash || !saleCart.length) return;
@@ -615,7 +643,7 @@ function App() {
                 {modal.type === 'transferReceipt' && <div className="form-grid">{modal.transfer.lines.filter((line) => Number(line.shipped_quantity) > Number(line.received_quantity)).map((line) => <div className="field full" key={line.id}><label>{line.product_name_snapshot} · enviado {Number(line.shipped_quantity)} · pendiente {Number(line.shipped_quantity) - Number(line.received_quantity)}</label><input type="number" min="0" max={Number(line.shipped_quantity) - Number(line.received_quantity)} step="0.000001" value={transferReceiveQuantities[line.id] || ''} onChange={(e) => setTransferReceiveQuantities((values) => ({ ...values, [line.id]: e.target.value }))} /></div>)}<div className="field full"><small>Registra solo la cantidad recibida físicamente. Las diferencias quedan en tránsito para una próxima recepción.</small></div></div>}
                 {modal.type === 'stockCount' && <div className="form-grid"><div className="field full"><label>Almacén</label><select name="warehouse_id" defaultValue={warehouseId} required>{warehouses.map((w) => <option value={w.id} key={w.id}>{w.name}</option>)}</select></div><div className="field full"><label>Unidades físicas contadas ({modal.product.base_unit})</label><input name="counted_quantity" type="number" min="0" step={modal.product.allows_fractional_quantity ? "0.000001" : "1"} defaultValue={modal.product.stock?.physical_quantity || "0"} required /></div><div className="field full"><label>Motivo / acta de conteo</label><input name="reason" required minLength="3" maxLength="240" placeholder="Conteo cíclico, inventario físico…" /></div><div className="field full"><small>La diferencia se registra como ajuste auditado. No se puede contar por debajo de las reservas activas.</small></div></div>}
                 {modal.type === 'movement' && <div className="form-grid"><div className="field full"><label>Almacén</label><select name="warehouse_id" value={movementWarehouseId || warehouseId} onChange={(event) => { const id = event.target.value; setMovementWarehouseId(id); setMovementLocationId(String(warehouses.find((warehouse) => String(warehouse.id) === String(id))?.location_id || '')); }} required>{warehouses.map((w) => <option value={w.id} key={w.id}>{w.name}</option>)}</select></div><div className="field full"><label>Ubicación</label><select name="location_id" value={movementLocationId} onChange={(event) => setMovementLocationId(event.target.value)} required>{warehouses.find((warehouse) => String(warehouse.id) === String(movementWarehouseId || warehouseId))?.locations?.map((location) => <option key={location.id} value={location.id}>{location.code} · {location.name}{location.is_default ? ' · Predeterminada' : ''}</option>)}</select></div><div className="field full"><label>Tipo de movimiento</label><select name="type"><option value="opening">Saldo inicial</option><option value="adjustment_in">Ajuste de entrada</option><option value="adjustment_out">Ajuste de salida</option><option value="damaged">Baja por daño / merma</option></select></div><div className="field"><label>Presentación recibida</label><select name="presentation_id" required>{modal.product.presentations.map((v) => <option value={v.id} key={v.id}>{v.name} ({Number(v.factor_to_base)} {modal.product.base_unit})</option>)}</select></div><div className="field"><label>Cantidad recibida</label><input name="quantity" type="number" min="0.000001" step="0.000001" required /></div><div className="field"><label>Costo unitario (S/, opcional)</label><input name="unit_cost" type="number" min="0" step="0.01" /></div><div className="field full"><label>Motivo / referencia</label><input name="reason" required minLength="3" maxLength="240" placeholder="Conteo inicial, acta, documento…" /></div></div>}
-        </div><div className={`modal-foot ${modal.type === 'ticket' ? 'no-print' : ''}`}><button type="button" className="button light" onClick={() => setModal(null)}>{modal.type === 'saleDetail' ? 'Cerrar' : 'Cancelar'}</button>{modal.type === 'saleDetail' ? <button type="button" className="button" onClick={() => { setTicketEmail(''); setError(''); setModal({ type: 'ticket', sale: modal.sale }); }}>Ver ticket</button> : modal.type === 'ticket' ? <><input className="ticket-email-input" aria-label="Correo para ticket" type="email" placeholder="Correo del cliente" value={ticketEmail} onChange={(e) => setTicketEmail(e.target.value)} /><button type="button" className="button light" onClick={() => shareTicketWhatsApp(modal.sale)}>WhatsApp</button><button type="button" className="button light" disabled={!ticketEmail.trim()} onClick={sendTicketEmail}>Enviar correo</button><button type="button" className="button no-print" onClick={() => window.print()}>Imprimir ticket</button></> : modal.type === 'locations' ? null : modal.type === 'saleCheckout' ? <button className="button" disabled={!saleCart.length || !activeCash || salePaidCents > saleTotalCents || (salePaidCents < saleTotalCents && !saleCustomerId)}>Confirmar venta · S/ {(saleTotalCents / 100).toFixed(2)}</button> : modal.type === 'sale' ? <button className="button" disabled={!saleCart.length}>Cobrar S/ {(saleTotalCents / 100).toFixed(2)}</button> : <button className="button">Guardar</button>}</div>
+        </div><div className={`modal-foot ${modal.type === 'ticket' ? 'no-print' : ''}`}><button type="button" className="button light" onClick={() => setModal(null)}>{modal.type === 'saleDetail' ? 'Cerrar' : 'Cancelar'}</button>{modal.type === 'saleDetail' ? <button type="button" className="button" onClick={() => { setTicketEmail(''); setError(''); setModal({ type: 'ticket', sale: modal.sale }); }}>Ver ticket</button> : modal.type === 'ticket' ? <><input className="ticket-email-input" aria-label="Correo para ticket" type="email" placeholder="Correo del cliente" value={ticketEmail} onChange={(e) => setTicketEmail(e.target.value)} /><button type="button" className="button light" onClick={() => shareTicketWhatsApp(modal.sale)}>WhatsApp: enlace PDF</button><button type="button" className="button light" onClick={() => shareTicketPdf(modal.sale)}>Compartir archivo PDF</button><button type="button" className="button light" onClick={() => downloadTicketPdf(modal.sale)}>Ver PDF</button><button type="button" className="button light" disabled={!ticketEmail.trim()} onClick={sendTicketEmail}>Enviar correo</button><button type="button" className="button no-print" onClick={() => window.print()}>Imprimir ticket</button></> : modal.type === 'locations' ? null : modal.type === 'saleCheckout' ? <button className="button" disabled={!saleCart.length || !activeCash || salePaidCents > saleTotalCents || (salePaidCents < saleTotalCents && !saleCustomerId)}>Confirmar venta · S/ {(saleTotalCents / 100).toFixed(2)}</button> : modal.type === 'sale' ? <button className="button" disabled={!saleCart.length}>Cobrar S/ {(saleTotalCents / 100).toFixed(2)}</button> : <button className="button">Guardar</button>}</div>
         </form></div>}
         {toast && <div className="toast">{toast}</div>}
     </div>;

@@ -10,5 +10,6 @@
 @endforeach
 </tbody></table>
 <p style="font-size:20px;text-align:right"><strong>Total: S/ {{ number_format($sale->total_cents / 100, 2) }}</strong></p>
-<p style="color:#777;font-size:12px">Documento interno de venta. Gracias por su compra.</p>
+<p>Adjuntamos el ticket en PDF.</p>
+<p style="color:#777;font-size:12px">Documento interno de venta. No es factura ni boleta electrónica SUNAT. Gracias por su compra.</p>
 </body></html>

@@ -60,6 +60,7 @@ Route::middleware('auth:sanctum')->prefix('v1')->group(function (): void {
     Route::get('/sales', [\App\Http\Controllers\Api\V1\SalesController::class, 'index']);
     Route::post('/sales', [\App\Http\Controllers\Api\V1\SalesController::class, 'create']);
     Route::post('/sales/{sale}/ticket/email', [\App\Http\Controllers\Api\V1\SalesController::class, 'emailTicket'])->middleware('throttle:10,1');
+    Route::get('/sales/{sale}/ticket/link', [\App\Http\Controllers\Api\V1\SalesController::class, 'ticketLink'])->middleware('throttle:30,1');
     Route::post('/sales/{sale}/sunat-document', [\App\Http\Controllers\Api\V1\SalesController::class, 'issueSunatDocument']);
     Route::get('/sales/documents/{document}/{kind}', [\App\Http\Controllers\Api\V1\SalesController::class, 'downloadSunatDocument']);
     Route::post('/sales/{sale}/external-document', [\App\Http\Controllers\Api\V1\SalesController::class, 'registerExternalDocument']);

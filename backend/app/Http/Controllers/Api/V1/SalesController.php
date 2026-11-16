@@ -9,25 +9,47 @@ use App\Models\SalePayment;
 use App\Models\SunatSetting;
 use App\Services\SaleReturnService;
 use App\Services\SalesService;
+use App\Services\SaleTicketPdf;
 use App\Services\SunatCpeService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\URL;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
 
 class SalesController extends Controller
 {
-    public function emailTicket(Request $request, Sale $sale): JsonResponse
+    public function ticketLink(Sale $sale): JsonResponse
+    {
+        $path = URL::temporarySignedRoute('tickets.pdf', now()->addDays(7), ['sale' => $sale->id], absolute: false);
+
+        return response()->json(['url' => rtrim(config('app.url'), '/').$path]);
+    }
+
+    public function downloadTicketPdf(Sale $sale, SaleTicketPdf $pdf)
+    {
+        return response($pdf->render($sale), 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="ticket-'.$sale->sale_number.'.pdf"',
+            'Cache-Control' => 'private, no-store',
+            'X-Content-Type-Options' => 'nosniff',
+        ]);
+    }
+
+    public function emailTicket(Request $request, Sale $sale, SaleTicketPdf $pdf): JsonResponse
     {
         $data = $request->validate(['email' => ['required', 'email', 'max:254']]);
         if (config('mail.default') !== 'resend' || ! config('services.resend.key')) {
             return response()->json(['message' => 'Configura Resend para enviar tickets por correo.'], 503);
         }
-        $sale->load(['lines', 'payments']);
-        Mail::send('emails.sale-ticket', ['sale' => $sale], function ($message) use ($data, $sale) {
-            $message->to($data['email'])->subject('Ticket de venta '.$sale->sale_number.' · U.LIONS');
+        $sale->load(['lines', 'payments', 'warehouse']);
+        $attachment = $pdf->render($sale);
+        Mail::send('emails.sale-ticket', ['sale' => $sale], function ($message) use ($data, $sale, $attachment) {
+            $message->to($data['email'])
+                ->subject('Ticket de venta '.$sale->sale_number.' · U.LIONS')
+                ->attachData($attachment, 'ticket-'.$sale->sale_number.'.pdf', ['mime' => 'application/pdf']);
         });
         return response()->json(['message' => 'Ticket enviado por correo.']);
     }
