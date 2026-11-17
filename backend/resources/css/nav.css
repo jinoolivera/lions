@@ -249,7 +249,10 @@ tbody tr:hover{background:#fcfaf5}
 .sales-workspace-item > span:nth-child(2) { flex: 1; }
 .sales-workspace-item small, .sales-workspace-grid small { display: block; margin-top: 4px; color: #68776c; }
 .sales-workspace-pages { display: flex; align-items: center; justify-content: center; gap: 14px; padding: 12px; border-top: 1px solid #e8e9e2; }
-.sales-workspace-detail { display: grid; gap: 20px; order: -1; scroll-margin-top: 18px; }
+.sales-workspace-dialog { width: min(1000px, 100%); max-height: calc(100dvh - 36px); display: flex; flex-direction: column; }
+.sales-workspace-dialog .modal-head, .sales-workspace-dialog .modal-foot { flex: none; }
+.sales-workspace-dialog-body { min-height: 0; max-height: none; flex: 1; overflow-y: auto; background: #f6f7f3; }
+.sales-workspace-detail { display: grid; gap: 20px; }
 .sales-workspace-detail > .panel { padding: 22px; }
 .sales-workspace-detail .toolbar { margin: -22px -22px 18px; }
 .sales-workspace-open { color: #8f6c21; font-weight: 800; white-space: nowrap; }
@@ -267,6 +270,7 @@ tbody tr:hover{background:#fcfaf5}
 .sales-workspace-form label { display: grid; gap: 5px; }
 .sales-workspace-form label input { max-width: 100%; }
 @media (max-width: 700px) {
+  .sales-workspace-dialog { max-height: 94dvh; }
   .sales-workspace-filters { padding: 14px; }
   .sales-workspace-item { padding: 16px; flex-wrap: wrap; font-size: 16px; }
   .sales-workspace-item > span:first-child { flex: 1 1 100%; }

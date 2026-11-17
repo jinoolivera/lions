@@ -1,4 +1,5 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import axios from 'axios';
 
 const money = (cents) => `S/ ${(Number(cents || 0) / 100).toFixed(2)}`;
@@ -34,7 +35,6 @@ export default function SalesWorkspace({ warehouses, branches, warehouseId, cust
     const [messageOk, setMessageOk] = useState(false);
     const [busy, setBusy] = useState(false);
     const [reload, setReload] = useState(0);
-    const detailRef = useRef(null);
 
     useEffect(() => { setArchiveWarehouseId(warehouseId); setSelectedId(null); }, [warehouseId]);
 
@@ -54,10 +54,6 @@ export default function SalesWorkspace({ warehouses, branches, warehouseId, cust
         return () => { live = false; };
     }, [selectedId, salesRevision, reload]);
 
-    useEffect(() => {
-        if (sale && Number(sale.id) === Number(selectedId)) detailRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }, [sale?.id, selectedId]);
-
     async function submit(event, action) {
         event.preventDefault();
         const formElement = event.currentTarget;
@@ -73,6 +69,8 @@ export default function SalesWorkspace({ warehouses, branches, warehouseId, cust
     }
 
     const updateFilter = (key, value) => setFilters((current) => ({ ...current, [key]: value, page: 1 }));
+    const closeDetail = () => { setSelectedId(null); setSale(null); setMessage(''); };
+    const openShipment = (selectedSale, shipment) => { closeDetail(); onShipment(selectedSale, shipment); };
     const activeWarehouse = warehouses.find((warehouse) => Number(warehouse.id) === Number(sale?.warehouse_id));
     const branchSeries = branches.find((branch) => Number(branch.id) === Number(activeWarehouse?.branch_id));
     const document = sale?.documents?.find((item) => item.environment !== 'beta');
@@ -97,7 +95,7 @@ export default function SalesWorkspace({ warehouses, branches, warehouseId, cust
             </div>
             <div className="sales-workspace-list">{archive.data.map((item) => {
                 const realDocument = item.documents?.find((row) => row.environment !== 'beta');
-                return <button type="button" key={item.id} className={`sales-workspace-item ${Number(selectedId) === Number(item.id) ? 'selected' : ''}`} onClick={() => { if (Number(selectedId) === Number(item.id)) detailRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }); else { setSale(null); setSelectedId(item.id); } setMessage(''); }}>
+                return <button type="button" key={item.id} className={`sales-workspace-item ${Number(selectedId) === Number(item.id) ? 'selected' : ''}`} onClick={() => { setSale(null); setSelectedId(item.id); setMessage(''); setReload((value) => value + 1); }}>
                     <span><strong>{item.sale_number}</strong><small>{new Date(item.sold_at).toLocaleString('es-PE')} · {item.customer_name || item.customer?.name || 'Venta al público'}</small></span>
                     <span><strong>{money(item.total_cents)}</strong><small>{realDocument ? `${docName(realDocument.document_type)} ${realDocument.series}-${realDocument.number}` : item.documents?.length ? 'Solo prueba Beta · real pendiente' : `${docName(item.requested_document_type)} pendiente`}</small></span>
                     <span className="badge">{item.status === 'completed' ? 'Pagada' : item.status === 'open' ? 'Por cobrar' : item.status === 'cancelled' ? 'Anulada' : 'Devuelta'}</span>
@@ -106,10 +104,15 @@ export default function SalesWorkspace({ warehouses, branches, warehouseId, cust
             })}{!archive.data.length && <p className="empty">No hay ventas con estos filtros.</p>}</div>
             <div className="sales-workspace-pages"><button type="button" className="icon-btn" disabled={filters.page <= 1} onClick={() => setFilters((current) => ({ ...current, page: current.page - 1 }))}>Anterior</button><span>Página {archive.meta.current_page} de {archive.meta.last_page}</span><button type="button" className="icon-btn" disabled={filters.page >= archive.meta.last_page} onClick={() => setFilters((current) => ({ ...current, page: current.page + 1 }))}>Siguiente</button></div>
         </div>
-        {message && <div className={messageOk ? 'success-note' : 'alert'} role="status">{message}</div>}
-        {selectedId && !sale && <div className="panel"><p>Cargando venta…</p></div>}
-        {sale && <div ref={detailRef} className="sales-workspace-detail">
-            <SaleTicketDetail sale={sale} warehouse={activeWarehouse} onTicket={onTicket} />
+        {!selectedId && message && <div className={messageOk ? 'success-note' : 'alert'} role="status">{message}</div>}
+        {selectedId && createPortal(<div className="modal-backdrop sales-workspace-backdrop">
+            <div className="modal sales-workspace-dialog" role="dialog" aria-modal="true" aria-labelledby="sales-workspace-dialog-title">
+                <div className="modal-head"><h2 id="sales-workspace-dialog-title">Detalle de venta {sale?.sale_number || ''}</h2><button type="button" className="icon-btn" aria-label="Cerrar detalle" onClick={closeDetail}>✕</button></div>
+                <div className="modal-body sales-workspace-dialog-body">
+                    {message && <div className={messageOk ? 'success-note' : 'alert'} role="status">{message}</div>}
+                    {!sale && <p>Cargando venta…</p>}
+                    {sale && <div className="sales-workspace-detail">
+            <SaleTicketDetail sale={sale} warehouse={activeWarehouse} onTicket={(chosenSale) => { closeDetail(); onTicket(chosenSale); }} />
             <div className="panel"><div className="toolbar"><strong>Factura o boleta</strong><span className="muted push">El ticket es interno; el comprobante fiscal se emite aparte.</span></div>
                 {!document && !betaDocument && !['cancelled', 'returned'].includes(sale.status) && <form className="sales-workspace-form" onSubmit={(event) => submit(event, (form) => axios.patch(`/api/v1/sales/${sale.id}/billing`, { requested_document_type: form.get('requested_document_type'), customer_id: form.get('customer_id') || null }))}><strong>Datos de facturación antes de emitir</strong><select name="requested_document_type" defaultValue={sale.requested_document_type || 'receipt'}><option value="receipt">Boleta</option><option value="invoice">Factura</option></select><select name="customer_id" defaultValue={sale.customer_id || ''}><option value="">Venta al público</option>{customers.map((customer) => <option key={customer.id} value={customer.id}>{customer.name} · {customer.tax_id || 'sin documento'}</option>)}</select><button className="button" disabled={busy}>Guardar datos</button><small>Factura: selecciona cliente con RUC. Boleta mayor a S/ 700: identifica al cliente.</small></form>}
                 {betaDocument && <div className="sales-workspace-document"><strong>Prueba Beta {betaDocument.series}-{betaDocument.number}</strong><span>{betaDocument.status} · sin valor tributario</span><a className="icon-btn" href={`/api/v1/sales/documents/${betaDocument.id}/xml`}>XML</a></div>}
@@ -120,7 +123,11 @@ export default function SalesWorkspace({ warehouses, branches, warehouseId, cust
                 {document?.adjustments?.map((note) => <div className="sales-workspace-document" key={note.id}><strong>{note.adjustment_type === 'credit_note' ? 'Nota de crédito' : 'Nota de débito'} {note.series}-{note.number}</strong><span>{note.issue_date} · {note.reason} · registro externo</span><strong>{money(note.total_cents)}</strong>{note.has_pdf && <a className="icon-btn" href={`/api/v1/sales/${sale.id}/documents/${document.id}/adjustments/${note.id}/pdf`}>PDF</a>}</div>)}
                 {user.role === 'admin' && document?.environment === 'external' && sunatMode === 'manual' && <form className="sales-workspace-form" onSubmit={(event) => submit(event, (form) => { const payload = new FormData(); for (const key of ['adjustment_type', 'series', 'number', 'issue_date', 'reason', 'issued_via', 'pdf']) if (form.get(key) && (key !== 'pdf' || form.get(key).name)) payload.append(key, form.get(key)); payload.append('total_cents', String(Math.round(Number(form.get('total')) * 100))); return axios.post(`/api/v1/sales/${sale.id}/documents/${document.id}/adjustments`, payload); })}><strong>Registrar nota emitida en SOL/PSE</strong><select name="adjustment_type"><option value="credit_note">Nota de crédito</option><option value="debit_note">Nota de débito</option></select><input name="series" placeholder="Serie F/B" maxLength="4" required /><input name="number" placeholder="Número" inputMode="numeric" required /><input name="issue_date" type="date" max={new Date().toLocaleDateString('en-CA')} required /><input name="total" type="number" min="0" step="0.01" placeholder="Importe S/" required /><input name="reason" minLength="5" maxLength="500" placeholder="Motivo de la nota" required /><select name="issued_via"><option value="see_sol">SUNAT SOL</option><option value="pse">PSE</option></select><label>PDF de la nota <input name="pdf" type="file" accept="application/pdf" /></label><button className="button light" disabled={busy}>Vincular nota</button></form>}
             </div>
-            <div className="panel"><div className="toolbar"><strong>Envíos y guías de remisión</strong><span className="muted push">Una guía por despacho cuando corresponda</span></div>{sale.shipments?.map((shipment) => <div className="sales-workspace-document" key={shipment.id}><strong>Despacho #{shipment.id}</strong><span>{shipment.status === 'prepared' ? 'Preparado' : shipment.status === 'dispatched' ? 'Despachado' : 'Cancelado'} · {shipment.lines?.map((line) => `${line.sale_line?.product_name_snapshot || 'Producto'} × ${line.quantity}`).join(', ')}</span><strong>{shipment.guide ? `GRE ${shipment.guide.series}-${shipment.guide.number}` : shipment.guide_required ? 'GRE pendiente' : 'Sin GRE requerida'}</strong>{shipment.status === 'prepared' && <button type="button" className="icon-btn" onClick={() => onShipment(sale, shipment)}>Confirmar despacho</button>}</div>)}{!sale.shipments?.length && <p className="muted">Sin envíos preparados.</p>}{!['cancelled', 'returned'].includes(sale.status) && canPrepareShipment && <button type="button" className="button light" onClick={() => onShipment(sale)}>Preparar envío</button>}</div>
-        </div>}
+            <div className="panel"><div className="toolbar"><strong>Envíos y guías de remisión</strong><span className="muted push">Una guía por despacho cuando corresponda</span></div>{sale.shipments?.map((shipment) => <div className="sales-workspace-document" key={shipment.id}><strong>Despacho #{shipment.id}</strong><span>{shipment.status === 'prepared' ? 'Preparado' : shipment.status === 'dispatched' ? 'Despachado' : 'Cancelado'} · {shipment.lines?.map((line) => `${line.sale_line?.product_name_snapshot || 'Producto'} × ${line.quantity}`).join(', ')}</span><strong>{shipment.guide ? `GRE ${shipment.guide.series}-${shipment.guide.number}` : shipment.guide_required ? 'GRE pendiente' : 'Sin GRE requerida'}</strong>{shipment.status === 'prepared' && <button type="button" className="icon-btn" onClick={() => openShipment(sale, shipment)}>Confirmar despacho</button>}</div>)}{!sale.shipments?.length && <p className="muted">Sin envíos preparados.</p>}{!['cancelled', 'returned'].includes(sale.status) && canPrepareShipment && <button type="button" className="button light" onClick={() => openShipment(sale)}>Preparar envío</button>}</div>
+                    </div>}
+                </div>
+                <div className="modal-foot"><button type="button" className="button light" onClick={closeDetail}>Cancelar</button></div>
+            </div>
+        </div>, window.document.body)}
     </div>;
 }
