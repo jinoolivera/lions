@@ -11,6 +11,23 @@ axios.defaults.headers.common.Accept = 'application/json';
 
 function App() {
     const [user, setUser] = useState(null), [loading, setLoading] = useState(true);
+    const [installPrompt, setInstallPrompt] = useState(null);
+    const [installHelp, setInstallHelp] = useState(false);
+    const [installDismissed, setInstallDismissed] = useState(() => localStorage.getItem('lions-install-dismissed') === '1');
+    const [appInstalled, setAppInstalled] = useState(() => window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true);
+    useEffect(() => {
+        const onBeforeInstall = (event) => { event.preventDefault(); setInstallPrompt(event); };
+        const onInstalled = () => { setAppInstalled(true); setInstallPrompt(null); };
+        window.addEventListener('beforeinstallprompt', onBeforeInstall);
+        window.addEventListener('appinstalled', onInstalled);
+        return () => { window.removeEventListener('beforeinstallprompt', onBeforeInstall); window.removeEventListener('appinstalled', onInstalled); };
+    }, []);
+    async function installMobileApp() {
+        if (!installPrompt) { setInstallHelp(true); return; }
+        await installPrompt.prompt();
+        await installPrompt.userChoice;
+        setInstallPrompt(null);
+    }
     const [products, setProducts] = useState([]), [warehouses, setWarehouses] = useState([]);
     const [branches, setBranches] = useState([]), [company, setCompany] = useState(null), [storeUsers, setStoreUsers] = useState([]);
     const [categories, setCategories] = useState([]);
@@ -588,6 +605,7 @@ function App() {
             <div className="sidebar-foot">{products.some((product) => product.sku?.startsWith('DEMO-')) && <div className="demo-data-flag">Datos de demostración</div>}LIONS IMPORT · ERP</div>
         </aside>
         <main className="main"><header className="topbar"><div className="breadcrumb"><span>Módulo</span><b>{pageTitle}</b></div><div className="user-chip"><label className="branch-picker"><span>Tienda</span><select value={warehouseId} onChange={(event) => { setSaleCart([]); setSaleLocationId(''); setWarehouseId(event.target.value); }} aria-label="Tienda activa">{warehouses.map((warehouse) => <option key={warehouse.id} value={warehouse.id}>{warehouse.branch_name || warehouse.name}{warehouses.filter((row) => row.branch_id === warehouse.branch_id).length > 1 ? ` · ${warehouse.name}` : ''}</option>)}</select></label><span className="avatar">{user.name?.[0]?.toUpperCase() || 'U'}</span><span>{user.name}</span><button className="icon-btn" onClick={logout}>Salir</button></div></header>
+            {!appInstalled && !installDismissed && <div className="mobile-install-banner"><img src="/images/lions-icon-192.png" alt="" /><div><strong>Lions en tu móvil</strong><span>{installHelp ? 'En iPhone: Compartir → Añadir a pantalla de inicio. En Android: menú del navegador → Instalar app.' : 'Instala el acceso directo y ábrelo como una app.'}</span></div><button type="button" className="button" onClick={installHelp ? () => { localStorage.setItem('lions-install-dismissed', '1'); setInstallDismissed(true); } : installMobileApp}>{installHelp ? 'Entendido' : 'Instalar'}</button><button type="button" className="install-dismiss" aria-label="Ocultar aviso de instalación" onClick={() => { localStorage.setItem('lions-install-dismissed', '1'); setInstallDismissed(true); }}>×</button></div>}
             <section className="content"><div className="heading"><p className="heading-description">{pageDescription}</p><div className="heading-actions">{tab === 'catalog' && <><button className="button light" onClick={() => { setError(''); setModal({ type: 'productMasters' }); }}>Marcas y unidades</button><button className="button light" onClick={() => { setError(''); setModal({ type: 'categoryManager' }); }}>Administrar categorías</button><button className="button light" onClick={() => { setError(''); setModal({ type: 'category' }); }}>＋ Categoría</button><button className="button light" onClick={() => { setError(''); setModal({ type: 'warehouse' }); }}>＋ Almacén</button><button className="button" onClick={() => { setError(''); setModal({ type: 'product' }); }}>＋ Nuevo producto</button></>}{tab === 'movements' && <><button className="button light" onClick={() => { setError(''); setLocationWarehouseId(warehouseId || String(warehouses[0]?.id || '')); setModal({ type: 'locations' }); }}>Ubicaciones</button>{warehouses.length > 1 && <button className="button" onClick={() => { setError(''); setTransferProductId(String(products.find((p) => p.is_active)?.id || '')); setModal({ type: 'transfer', operationKey: crypto.randomUUID() }); }}>＋ Transferir stock</button>}</>}{tab === 'sales' && <>{!activeCash ? <button className="button" onClick={() => { setError(''); setModal({ type: 'openCash' }); }}>＋ Abrir caja</button> : <><button className="button light" onClick={() => { setError(''); setModal({ type: 'closeCash' }); }}>Cerrar caja</button></>}</>}{tab === 'customers' && <button className="button" onClick={() => { setError(''); setModal({ type: 'customer' }); }}>＋ Nuevo cliente</button>}{tab === 'orders' && <button className="button" onClick={() => { setError(''); setOrderDraftLines([{ product_id: '', presentation_id: '', quantity: '1' }]); setModal({ type: 'deliveryOrder', operationKey: crypto.randomUUID() }); }}>＋ Nuevo pedido</button>}{tab === 'finance' && <button className="button" onClick={() => { setError(''); setFinanceType('expense'); setModal({ type: 'financeTransaction', operationKey: crypto.randomUUID(), occurredAt: new Date().toISOString() }); }}>＋ Registrar movimiento</button>}{tab === 'purchases' && <><button className="button light" onClick={() => { setError(''); setModal({ type: 'supplier' }); }}>＋ Proveedor</button><button className="button light" onClick={() => { setError(''); setPurchaseProductId(String(products.find((p) => p.is_active)?.id || '')); setModal({ type: 'directPurchase', operationKey: crypto.randomUUID(), receiptKey: crypto.randomUUID() }); }}>Compra directa</button><button className="button" onClick={() => { setError(''); setPurchaseProductId(String(products.find((p) => p.is_active)?.id || '')); setModal({ type: 'purchase', operationKey: crypto.randomUUID() }); }}>＋ Orden de compra</button></>}</div></div>
                 {tab === 'stores' && user.role === 'admin' && <StoreSettings branches={branches} company={company} users={storeUsers} saveBranch={saveBranch} saveCompany={saveCompany} saveStoreUser={saveStoreUser} />}
                 {tab === 'billing' && <div className="billing-layout">
@@ -706,3 +724,6 @@ function App() {
 }
 
 createRoot(document.getElementById('app')).render(<App />);
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => {}));
+}

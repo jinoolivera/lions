@@ -1,0 +1,17 @@
+{
+  "id": "/",
+  "name": "U.LIONS Import ERP",
+  "short_name": "Lions ERP",
+  "description": "Ventas, tiendas, inventario y gestión de Lions Import",
+  "lang": "es-PE",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#191a1e",
+  "theme_color": "#191a1e",
+  "icons": [
+    { "src": "/images/lions-icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/images/lions-icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/images/lions-icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
