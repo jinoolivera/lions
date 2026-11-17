@@ -1,9 +1,28 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import axios from 'axios';
 
 const money = (cents) => `S/ ${(Number(cents || 0) / 100).toFixed(2)}`;
 const errorText = (error) => Object.values(error.response?.data?.errors || {}).flat().join(' ') || error.response?.data?.message || 'No se pudo completar la operación.';
 const docName = (type) => type === 'invoice' ? 'Factura' : type === 'receipt' ? 'Boleta' : 'Sin elegir';
+
+function SaleTicketDetail({ sale, warehouse, onTicket }) {
+    return <div className="panel sales-workspace-sale-card">
+        <div className="toolbar"><strong>Detalle de venta {sale.sale_number}</strong><span className="muted push">{warehouse?.branch_name || warehouse?.name || 'Tienda'} · {new Date(sale.sold_at).toLocaleString('es-PE')}</span></div>
+        <div className="sales-workspace-grid">
+            <div><small>Cliente</small><strong>{sale.customer_name || sale.customer?.name || 'Venta al público'}</strong></div>
+            <div><small>Estado</small><strong>{sale.status === 'completed' ? 'Pagada' : sale.status === 'open' ? 'Por cobrar' : sale.status === 'cancelled' ? 'Anulada' : 'Devuelta'}</strong></div>
+            <div><small>Total</small><strong>{money(sale.total_cents)}</strong></div>
+            <div><small>Saldo</small><strong>{money(sale.total_cents - sale.paid_cents)}</strong></div>
+        </div>
+        <h3>Productos vendidos</h3>
+        <div className="sales-workspace-lines">{sale.lines?.map((line) => <div key={line.id}>
+            <span><strong>{line.product_name_snapshot}</strong><small>{line.presentation_name_snapshot} · {Number(line.quantity)} × {money(line.unit_price_cents)}</small>{Number(line.discount_cents) > 0 && <small>Descuento {money(line.discount_cents)}</small>}</span>
+            <strong>{money(line.line_total_cents)}</strong>
+        </div>)}</div>
+        <div className="sales-workspace-payments"><strong>Pagos</strong>{sale.payments?.length ? sale.payments.map((payment) => <span key={payment.id}>{({ cash: 'Efectivo', card: 'Tarjeta', transfer: 'Transferencia', other: 'Otro' })[payment.method] || payment.method}: {money(payment.amount_cents)}</span>) : <span>Sin pagos registrados</span>}</div>
+        <div className="sales-workspace-ticket-actions"><strong>Total {money(sale.total_cents)}</strong><button type="button" className="button" onClick={() => onTicket(sale)}>🧾 Ver ticket, imprimir o compartir PDF</button></div>
+    </div>;
+}
 
 export default function SalesWorkspace({ warehouses, branches, warehouseId, customers, user, sunatMode, salesRevision, onTicket, onShipment }) {
     const [filters, setFilters] = useState({ q: '', status: '', document: '', from: '', to: '', page: 1 });
@@ -15,6 +34,7 @@ export default function SalesWorkspace({ warehouses, branches, warehouseId, cust
     const [messageOk, setMessageOk] = useState(false);
     const [busy, setBusy] = useState(false);
     const [reload, setReload] = useState(0);
+    const detailRef = useRef(null);
 
     useEffect(() => { setArchiveWarehouseId(warehouseId); setSelectedId(null); }, [warehouseId]);
 
@@ -33,6 +53,10 @@ export default function SalesWorkspace({ warehouses, branches, warehouseId, cust
             .catch((error) => { if (live) { setMessageOk(false); setMessage(errorText(error)); } });
         return () => { live = false; };
     }, [selectedId, salesRevision, reload]);
+
+    useEffect(() => {
+        if (sale && Number(sale.id) === Number(selectedId)) detailRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, [sale?.id, selectedId]);
 
     async function submit(event, action) {
         event.preventDefault();
@@ -73,18 +97,19 @@ export default function SalesWorkspace({ warehouses, branches, warehouseId, cust
             </div>
             <div className="sales-workspace-list">{archive.data.map((item) => {
                 const realDocument = item.documents?.find((row) => row.environment !== 'beta');
-                return <button type="button" key={item.id} className={`sales-workspace-item ${Number(selectedId) === Number(item.id) ? 'selected' : ''}`} onClick={() => { setSelectedId(item.id); setMessage(''); }}>
+                return <button type="button" key={item.id} className={`sales-workspace-item ${Number(selectedId) === Number(item.id) ? 'selected' : ''}`} onClick={() => { if (Number(selectedId) === Number(item.id)) detailRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }); else { setSale(null); setSelectedId(item.id); } setMessage(''); }}>
                     <span><strong>{item.sale_number}</strong><small>{new Date(item.sold_at).toLocaleString('es-PE')} · {item.customer_name || item.customer?.name || 'Venta al público'}</small></span>
                     <span><strong>{money(item.total_cents)}</strong><small>{realDocument ? `${docName(realDocument.document_type)} ${realDocument.series}-${realDocument.number}` : item.documents?.length ? 'Solo prueba Beta · real pendiente' : `${docName(item.requested_document_type)} pendiente`}</small></span>
                     <span className="badge">{item.status === 'completed' ? 'Pagada' : item.status === 'open' ? 'Por cobrar' : item.status === 'cancelled' ? 'Anulada' : 'Devuelta'}</span>
+                    <span className="sales-workspace-open">Ver detalle y ticket →</span>
                 </button>;
             })}{!archive.data.length && <p className="empty">No hay ventas con estos filtros.</p>}</div>
             <div className="sales-workspace-pages"><button type="button" className="icon-btn" disabled={filters.page <= 1} onClick={() => setFilters((current) => ({ ...current, page: current.page - 1 }))}>Anterior</button><span>Página {archive.meta.current_page} de {archive.meta.last_page}</span><button type="button" className="icon-btn" disabled={filters.page >= archive.meta.last_page} onClick={() => setFilters((current) => ({ ...current, page: current.page + 1 }))}>Siguiente</button></div>
         </div>
         {message && <div className={messageOk ? 'success-note' : 'alert'} role="status">{message}</div>}
         {selectedId && !sale && <div className="panel"><p>Cargando venta…</p></div>}
-        {sale && <div className="sales-workspace-detail">
-            <div className="panel"><div className="toolbar"><strong>Venta {sale.sale_number}</strong><span className="muted push">{activeWarehouse?.branch_name || activeWarehouse?.name || 'Tienda'} · {new Date(sale.sold_at).toLocaleString('es-PE')}</span></div><div className="sales-workspace-grid"><div><small>Cliente</small><strong>{sale.customer_name || sale.customer?.name || 'Venta al público'}</strong></div><div><small>Estado</small><strong>{sale.status === 'completed' ? 'Pagada' : sale.status === 'open' ? 'Por cobrar' : sale.status === 'cancelled' ? 'Anulada' : 'Devuelta'}</strong></div><div><small>Total</small><strong>{money(sale.total_cents)}</strong></div><div><small>Saldo</small><strong>{money(sale.total_cents - sale.paid_cents)}</strong></div></div><div className="sales-workspace-lines">{sale.lines?.map((line) => <div key={line.id}><span>{line.product_name_snapshot} · {line.presentation_name_snapshot} × {line.quantity}</span><strong>{money(line.line_total_cents)}</strong></div>)}</div><button type="button" className="button light" onClick={() => onTicket(sale)}>Ver / compartir ticket PDF</button></div>
+        {sale && <div ref={detailRef} className="sales-workspace-detail">
+            <SaleTicketDetail sale={sale} warehouse={activeWarehouse} onTicket={onTicket} />
             <div className="panel"><div className="toolbar"><strong>Factura o boleta</strong><span className="muted push">El ticket es interno; el comprobante fiscal se emite aparte.</span></div>
                 {!document && !betaDocument && !['cancelled', 'returned'].includes(sale.status) && <form className="sales-workspace-form" onSubmit={(event) => submit(event, (form) => axios.patch(`/api/v1/sales/${sale.id}/billing`, { requested_document_type: form.get('requested_document_type'), customer_id: form.get('customer_id') || null }))}><strong>Datos de facturación antes de emitir</strong><select name="requested_document_type" defaultValue={sale.requested_document_type || 'receipt'}><option value="receipt">Boleta</option><option value="invoice">Factura</option></select><select name="customer_id" defaultValue={sale.customer_id || ''}><option value="">Venta al público</option>{customers.map((customer) => <option key={customer.id} value={customer.id}>{customer.name} · {customer.tax_id || 'sin documento'}</option>)}</select><button className="button" disabled={busy}>Guardar datos</button><small>Factura: selecciona cliente con RUC. Boleta mayor a S/ 700: identifica al cliente.</small></form>}
                 {betaDocument && <div className="sales-workspace-document"><strong>Prueba Beta {betaDocument.series}-{betaDocument.number}</strong><span>{betaDocument.status} · sin valor tributario</span><a className="icon-btn" href={`/api/v1/sales/documents/${betaDocument.id}/xml`}>XML</a></div>}

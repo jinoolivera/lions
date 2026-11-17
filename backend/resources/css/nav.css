@@ -249,9 +249,15 @@ tbody tr:hover{background:#fcfaf5}
 .sales-workspace-item > span:nth-child(2) { flex: 1; }
 .sales-workspace-item small, .sales-workspace-grid small { display: block; margin-top: 4px; color: #68776c; }
 .sales-workspace-pages { display: flex; align-items: center; justify-content: center; gap: 14px; padding: 12px; border-top: 1px solid #e8e9e2; }
-.sales-workspace-detail { display: grid; gap: 20px; }
+.sales-workspace-detail { display: grid; gap: 20px; order: -1; scroll-margin-top: 18px; }
 .sales-workspace-detail > .panel { padding: 22px; }
 .sales-workspace-detail .toolbar { margin: -22px -22px 18px; }
+.sales-workspace-open { color: #8f6c21; font-weight: 800; white-space: nowrap; }
+.sales-workspace-sale-card h3 { margin: 20px 0 8px; font-size: 19px; }
+.sales-workspace-lines small { display: block; margin-top: 4px; color: #657067; }
+.sales-workspace-payments { display: flex; flex-wrap: wrap; gap: 8px 18px; padding: 14px 0; border-top: 1px solid #e8e9e2; }
+.sales-workspace-ticket-actions { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 14px; padding-top: 12px; border-top: 1px solid #e8e9e2; }
+.sales-workspace-ticket-actions > strong { font-size: 21px; }
 .sales-workspace-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin-bottom: 18px; }
 .sales-workspace-grid > div { display: grid; gap: 4px; padding: 14px; border: 1px solid #e6e8e1; border-radius: 12px; }
 .sales-workspace-lines > div, .sales-workspace-document { display: flex; align-items: center; flex-wrap: wrap; justify-content: space-between; gap: 12px; padding: 14px 0; border-top: 1px solid #e8e9e2; }
@@ -264,8 +270,10 @@ tbody tr:hover{background:#fcfaf5}
   .sales-workspace-filters { padding: 14px; }
   .sales-workspace-item { padding: 16px; flex-wrap: wrap; font-size: 16px; }
   .sales-workspace-item > span:first-child { flex: 1 1 100%; }
+  .sales-workspace-open { flex: 1 1 100%; }
   .sales-workspace-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .sales-workspace-form > input, .sales-workspace-form > select, .sales-workspace-form > label, .sales-workspace-form > button { flex-basis: 100%; }
   .sales-workspace-detail > .panel { padding: 16px; }
   .sales-workspace-detail .toolbar { margin: -16px -16px 18px; }
+  .sales-workspace-ticket-actions .button { width: 100%; justify-content: center; }
 }
