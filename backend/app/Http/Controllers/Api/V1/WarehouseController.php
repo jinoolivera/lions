@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1;
 use App\Http\Controllers\Controller;
 use App\Models\Warehouse;
 use App\Models\WarehouseLocation;
+use App\Support\BranchAccess;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -12,11 +13,14 @@ use Illuminate\Validation\Rule;
 
 class WarehouseController extends Controller
 {
-    public function index(): JsonResponse
+    public function index(Request $request): JsonResponse
     {
-        $warehouses = Warehouse::query()->where('is_active', true)->with('locations')->orderBy('name')->get()
+        $warehouses = Warehouse::query()->where('is_active', true)->with(['locations', 'branch:id,code,name'])
+            ->when($request->user()->role !== 'admin', fn ($query) => $query->whereIn('id', BranchAccess::warehouseIds($request->user())))
+            ->orderBy('branch_id')->orderBy('name')->get()
             ->map(fn (Warehouse $warehouse): array => [
                 'id' => $warehouse->id, 'code' => $warehouse->code, 'name' => $warehouse->name,
+                'branch_id' => $warehouse->branch_id, 'branch_name' => $warehouse->branch?->name,
                 'location_id' => $warehouse->locations->firstWhere('is_default', true)?->id ?? $warehouse->locations->first()?->id,
                 'location_name' => $warehouse->locations->firstWhere('is_default', true)?->name ?? $warehouse->locations->first()?->name,
                 'locations' => $warehouse->locations->map(fn ($location): array => [
@@ -34,9 +38,10 @@ class WarehouseController extends Controller
             'code' => ['required', 'string', 'max:32', 'unique:warehouses,code'],
             'name' => ['required', 'string', 'max:120'],
             'location_name' => ['required', 'string', 'max:120'],
+            'branch_id' => ['required', 'integer', Rule::exists('branches', 'id')->where('is_active', true)],
         ]);
         $warehouse = DB::transaction(function () use ($data): Warehouse {
-            $warehouse = Warehouse::query()->create(['code' => strtoupper(trim($data['code'])), 'name' => trim($data['name'])]);
+            $warehouse = Warehouse::query()->create(['branch_id' => $data['branch_id'], 'code' => strtoupper(trim($data['code'])), 'name' => trim($data['name'])]);
             $warehouse->locations()->create(['code' => 'DEFAULT', 'name' => trim($data['location_name']), 'is_default' => true]);
 
             return $warehouse;

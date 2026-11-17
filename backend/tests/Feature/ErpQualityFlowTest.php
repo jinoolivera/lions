@@ -23,7 +23,7 @@ class ErpQualityFlowTest extends TestCase
     public function test_localhost_and_loopback_sessions_can_open_cash_after_login(): void
     {
         $user = User::factory()->create([
-            'email' => 'admin@lions.com',
+            'email' => 'admin@lions.com', 'role' => 'admin',
             'password' => Hash::make('uw872301'),
         ]);
         $warehouse = Warehouse::query()->where('code', 'MAIN')->firstOrFail();
@@ -54,7 +54,7 @@ class ErpQualityFlowTest extends TestCase
 
     public function test_finance_expenses_update_cash_once_and_feed_management_reports(): void
     {
-        $user = User::factory()->create();
+        $user = User::factory()->create(['role' => 'admin']);
         $this->actingAs($user, 'web');
         $warehouse = Warehouse::query()->where('code', 'MAIN')->firstOrFail();
         $session = $this->postJson('/api/v1/cash/sessions', [
@@ -88,7 +88,7 @@ class ErpQualityFlowTest extends TestCase
 
     public function test_purchase_order_accepts_multiple_product_lines(): void
     {
-        $this->actingAs(User::factory()->create(), 'web');
+        $this->actingAs(User::factory()->create(['role' => 'admin']), 'web');
         $supplier = $this->postJson('/api/v1/suppliers', ['name' => 'Proveedor de prueba'])->assertCreated()->json('data');
         $products = [];
         foreach ([['SKU-MULTI-A', 'Producto A'], ['SKU-MULTI-B', 'Producto B']] as [$sku, $name]) {
@@ -110,7 +110,8 @@ class ErpQualityFlowTest extends TestCase
     public function test_only_management_can_approve_sale_discounts_and_discount_is_audited(): void
     {
         $manager = User::factory()->create(['role' => 'manager']);
-        $this->actingAs($manager, 'web');
+        $manager->branches()->attach(\App\Models\Branch::query()->where('code', 'LIONS_A')->value('id'));
+        $this->actingAs(User::factory()->create(['role' => 'admin']), 'web');
         $warehouse = Warehouse::query()->where('code', 'MAIN')->firstOrFail();
         $product = $this->postJson('/api/v1/products', [
             'sku' => 'QUALITY-DISCOUNT-001', 'name' => 'Producto con descuento', 'base_unit' => 'unidad', 'minimum_stock' => 0,
@@ -121,6 +122,8 @@ class ErpQualityFlowTest extends TestCase
             'product_id' => $product['id'], 'warehouse_id' => $warehouse->id, 'presentation_id' => $presentationId,
             'type' => 'opening', 'quantity' => 5, 'unit_cost_cents' => 5000, 'reason' => 'Apertura', 'operation_key' => 'discount-stock-001',
         ])->assertCreated();
+        \Illuminate\Support\Facades\Auth::forgetGuards();
+        $this->actingAs($manager, 'web');
         $session = $this->postJson('/api/v1/cash/sessions', ['warehouse_id' => $warehouse->id, 'opening_cents' => 0])->assertCreated()->json('data');
         $salePayload = [
             'operation_key' => 'discount-sale-cashier-001', 'cash_session_id' => $session['id'],
@@ -141,7 +144,8 @@ class ErpQualityFlowTest extends TestCase
     public function test_cashier_cannot_submit_sale_discount(): void
     {
         $cashier = User::factory()->create(['role' => 'cashier']);
-        $this->actingAs($cashier, 'web');
+        $cashier->branches()->attach(\App\Models\Branch::query()->where('code', 'LIONS_A')->value('id'));
+        $this->actingAs(User::factory()->create(['role' => 'admin']), 'web');
         $warehouse = Warehouse::query()->where('code', 'MAIN')->firstOrFail();
         $product = $this->postJson('/api/v1/products', [
             'sku' => 'QUALITY-DISCOUNT-002', 'name' => 'Producto sin descuento autorizado', 'base_unit' => 'unidad', 'minimum_stock' => 0,
@@ -152,6 +156,8 @@ class ErpQualityFlowTest extends TestCase
             'product_id' => $product['id'], 'warehouse_id' => $warehouse->id, 'presentation_id' => $presentationId,
             'type' => 'opening', 'quantity' => 5, 'unit_cost_cents' => 5000, 'reason' => 'Apertura', 'operation_key' => 'discount-stock-002',
         ])->assertCreated();
+        \Illuminate\Support\Facades\Auth::forgetGuards();
+        $this->actingAs($cashier, 'web');
         $session = $this->postJson('/api/v1/cash/sessions', ['warehouse_id' => $warehouse->id, 'opening_cents' => 0])->assertCreated()->json('data');
         $this->postJson('/api/v1/sales', [
             'operation_key' => 'discount-sale-cashier-001', 'cash_session_id' => $session['id'],
@@ -163,7 +169,8 @@ class ErpQualityFlowTest extends TestCase
     public function test_management_return_restock_partial_quantity_and_cancel_a_sale(): void
     {
         $manager = User::factory()->create(['role' => 'manager']);
-        $this->actingAs($manager, 'web');
+        $manager->branches()->attach(\App\Models\Branch::query()->where('code', 'LIONS_A')->value('id'));
+        $this->actingAs(User::factory()->create(['role' => 'admin']), 'web');
         $warehouse = Warehouse::query()->where('code', 'MAIN')->firstOrFail();
         $product = $this->postJson('/api/v1/products', [
             'sku' => 'QUALITY-RETURN-001', 'name' => 'Producto con devolución', 'base_unit' => 'unidad', 'minimum_stock' => 0,
@@ -174,6 +181,8 @@ class ErpQualityFlowTest extends TestCase
             'product_id' => $product['id'], 'warehouse_id' => $warehouse->id, 'presentation_id' => $presentationId,
             'type' => 'opening', 'quantity' => 5, 'unit_cost_cents' => 5000, 'reason' => 'Apertura', 'operation_key' => 'return-stock-001',
         ])->assertCreated();
+        \Illuminate\Support\Facades\Auth::forgetGuards();
+        $this->actingAs($manager, 'web');
         $session = $this->postJson('/api/v1/cash/sessions', ['warehouse_id' => $warehouse->id, 'opening_cents' => 0])->assertCreated()->json('data');
         $sale = $this->postJson('/api/v1/sales', [
             'operation_key' => 'return-sale-001', 'cash_session_id' => $session['id'],
@@ -192,6 +201,8 @@ class ErpQualityFlowTest extends TestCase
         ])->assertCreated()->assertJsonPath('data.amount_cents', 10000);
         $this->assertSame('cancelled', Sale::query()->findOrFail($sale['id'])->status);
         $this->assertSame('5.000000', StockBalance::query()->where('product_id', $product['id'])->value('physical_quantity'));
+        \Illuminate\Support\Facades\Auth::forgetGuards();
+        $this->actingAs(User::factory()->create(['role' => 'admin']), 'web');
         $this->getJson('/api/v1/reports/overview?from='.now()->toDateString().'&to='.now()->toDateString().'&warehouse_id='.$warehouse->id)
             ->assertOk()->assertJsonPath('data.sales.total_cents', 0)->assertJsonPath('data.finance.cost_of_goods_cents', 0)
             ->assertJsonPath('data.finance.cashflow_net_cents', 0);
@@ -199,11 +210,11 @@ class ErpQualityFlowTest extends TestCase
 
     public function test_sales_receipts_transfers_and_delivery_use_the_selected_warehouse_locations(): void
     {
-        $this->actingAs(User::factory()->create(['role' => 'manager']), 'web');
+        $this->actingAs(User::factory()->create(['role' => 'admin']), 'web');
         $warehouse = Warehouse::query()->where('code', 'MAIN')->firstOrFail();
         $sourceLocation = $this->postJson('/api/v1/warehouses/'.$warehouse->id.'/locations', ['code' => 'FLOW-A', 'name' => 'Zona A'])
             ->assertCreated()->json('data');
-        $destination = $this->postJson('/api/v1/warehouses', ['code' => 'FLOW-B', 'name' => 'Almacén B', 'location_name' => 'Zona general'])
+        $destination = $this->postJson('/api/v1/warehouses', ['code' => 'FLOW-B', 'name' => 'Almacén B', 'location_name' => 'Zona general', 'branch_id' => $warehouse->branch_id])
             ->assertCreated()->json('data');
         $destinationLocation = $this->postJson('/api/v1/warehouses/'.$destination['id'].'/locations', ['code' => 'FLOW-B2', 'name' => 'Zona B2'])
             ->assertCreated()->json('data');
@@ -262,7 +273,7 @@ class ErpQualityFlowTest extends TestCase
 
     public function test_foreign_currency_purchase_uses_dated_rate_for_inventory_and_invoice_reconciliation(): void
     {
-        $this->actingAs(User::factory()->create(), 'web');
+        $this->actingAs(User::factory()->create(['role' => 'admin']), 'web');
         $warehouse = Warehouse::query()->where('code', 'MAIN')->firstOrFail();
         $supplier = $this->postJson('/api/v1/suppliers', ['name' => 'Proveedor en dólares'])->assertCreated()->json('data');
         $product = $this->postJson('/api/v1/products', [
@@ -297,7 +308,7 @@ class ErpQualityFlowTest extends TestCase
 
     public function test_landed_costs_are_prorated_across_partial_receipts_without_rounding_them_away(): void
     {
-        $this->actingAs(User::factory()->create(), 'web');
+        $this->actingAs(User::factory()->create(['role' => 'admin']), 'web');
         $warehouse = Warehouse::query()->where('code', 'MAIN')->firstOrFail();
         $supplier = $this->postJson('/api/v1/suppliers', ['name' => 'Proveedor con flete'])->assertCreated()->json('data');
         $product = $this->postJson('/api/v1/products', [
@@ -337,7 +348,7 @@ class ErpQualityFlowTest extends TestCase
 
     public function test_product_purchase_cash_credit_delivery_and_report_work_end_to_end(): void
     {
-        $user = User::factory()->create();
+        $user = User::factory()->create(['role' => 'admin']);
         $this->actingAs($user, 'web');
         $warehouse = Warehouse::query()->where('code', 'MAIN')->firstOrFail();
 
@@ -502,14 +513,14 @@ class ErpQualityFlowTest extends TestCase
         $this->postJson('/api/v1/cash/sessions', ['warehouse_id' => $warehouse->id, 'opening_cents' => 0])
             ->assertUnauthorized();
 
-        $user = User::factory()->create();
+        $user = User::factory()->create(['role' => 'admin']);
         $this->actingAs($user, 'web');
         $this->postJson('/api/v1/cash/sessions', ['warehouse_id' => $warehouse->id, 'opening_cents' => 0])->assertCreated();
     }
 
     public function test_customer_advance_is_audited_applied_once_and_sale_due_date_is_kept(): void
     {
-        $this->actingAs(User::factory()->create(), 'web');
+        $this->actingAs(User::factory()->create(['role' => 'admin']), 'web');
         $warehouse = Warehouse::query()->where('code', 'MAIN')->firstOrFail();
         $customer = $this->postJson('/api/v1/customers', [
             'name' => 'Cliente con adelanto', 'credit_limit_cents' => 5000,
@@ -545,7 +556,7 @@ class ErpQualityFlowTest extends TestCase
 
     public function test_delivery_order_records_multiple_lines_source_address_and_responsible(): void
     {
-        $this->actingAs(User::factory()->create(), 'web');
+        $this->actingAs(User::factory()->create(['role' => 'admin']), 'web');
         $warehouse = Warehouse::query()->where('code', 'MAIN')->firstOrFail();
         $customer = $this->postJson('/api/v1/customers', ['name' => 'Cliente de despacho', 'credit_limit_cents' => 0])->assertCreated()->json('data');
         $created = [];
@@ -573,7 +584,7 @@ class ErpQualityFlowTest extends TestCase
 
     public function test_catalog_categories_wholesale_prices_and_presentation_history_are_controlled(): void
     {
-        $this->actingAs(User::factory()->create(), 'web');
+        $this->actingAs(User::factory()->create(['role' => 'admin']), 'web');
         $warehouse = Warehouse::query()->where('code', 'MAIN')->firstOrFail();
         $category = $this->postJson('/api/v1/product-categories', ['name' => 'Hogar'])->assertCreated()->json('data');
         $this->postJson('/api/v1/product-brands', ['name' => 'Lions'])->assertCreated();
@@ -618,7 +629,7 @@ class ErpQualityFlowTest extends TestCase
 
     public function test_customer_dni_and_ruc_are_classified_and_format_checked(): void
     {
-        $this->actingAs(User::factory()->create(), 'web');
+        $this->actingAs(User::factory()->create(['role' => 'admin']), 'web');
         $base = ['name' => 'Cliente de prueba', 'credit_limit_cents' => 0];
 
         $this->postJson('/api/v1/customers', $base + ['tax_id_type' => 'dni', 'tax_id' => '1234567'])
@@ -635,7 +646,7 @@ class ErpQualityFlowTest extends TestCase
 
     public function test_product_brand_and_base_unit_masters_protect_existing_catalog_history(): void
     {
-        $this->actingAs(User::factory()->create(), 'web');
+        $this->actingAs(User::factory()->create(['role' => 'admin']), 'web');
         $brand = $this->postJson('/api/v1/product-brands', ['name' => '  Marca temporal  '])
             ->assertCreated()->assertJsonPath('data.name', 'Marca temporal')->json('data');
         $unit = $this->postJson('/api/v1/product-units', ['name' => 'paquete'])
@@ -665,7 +676,7 @@ class ErpQualityFlowTest extends TestCase
 
     public function test_physical_count_and_damage_write_audited_stock_movements(): void
     {
-        $this->actingAs(User::factory()->create(), 'web');
+        $this->actingAs(User::factory()->create(['role' => 'admin']), 'web');
         $warehouse = Warehouse::query()->where('code', 'MAIN')->firstOrFail();
         $product = $this->postJson('/api/v1/products', [
             'sku' => 'QUALITY-COUNT-001', 'name' => 'Vaso', 'base_unit' => 'unidad', 'minimum_stock' => 0,
@@ -689,7 +700,7 @@ class ErpQualityFlowTest extends TestCase
 
     public function test_inventory_locations_can_be_created_selected_and_made_default(): void
     {
-        $this->actingAs(User::factory()->create(), 'web');
+        $this->actingAs(User::factory()->create(['role' => 'admin']), 'web');
         $warehouse = Warehouse::query()->where('code', 'MAIN')->firstOrFail();
         $location = $this->postJson('/api/v1/warehouses/'.$warehouse->id.'/locations', [
             'code' => 'A-01', 'name' => 'Pasillo A · nivel 1',
@@ -717,7 +728,7 @@ class ErpQualityFlowTest extends TestCase
 
     public function test_direct_purchase_and_partial_supplier_invoice_payment_reconcile(): void
     {
-        $this->actingAs(User::factory()->create(), 'web');
+        $this->actingAs(User::factory()->create(['role' => 'admin']), 'web');
         $warehouse = Warehouse::query()->where('code', 'MAIN')->firstOrFail();
         $supplier = $this->postJson('/api/v1/suppliers', ['name' => 'Proveedor de prueba'])->assertCreated()->json('data');
         $product = $this->postJson('/api/v1/products', [
@@ -779,10 +790,10 @@ class ErpQualityFlowTest extends TestCase
 
     public function test_stock_transfer_reduces_origin_then_receives_in_destination_partially(): void
     {
-        $this->actingAs(User::factory()->create(), 'web');
+        $this->actingAs(User::factory()->create(['role' => 'admin']), 'web');
         $source = Warehouse::query()->where('code', 'MAIN')->firstOrFail();
         $destination = $this->postJson('/api/v1/warehouses', [
-            'code' => 'QUALITY-DEST', 'name' => 'Almacén destino de prueba', 'location_name' => 'General',
+            'code' => 'QUALITY-DEST', 'name' => 'Almacén destino de prueba', 'location_name' => 'General', 'branch_id' => $source->branch_id,
         ])->assertCreated()->json('data');
         $destinationLocationId = collect($destination['locations'])->firstWhere('is_default', true)['id'];
         $product = $this->postJson('/api/v1/products', [

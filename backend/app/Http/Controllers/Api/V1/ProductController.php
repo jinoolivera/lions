@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Product;
 use App\Models\ProductPresentation;
 use App\Models\Warehouse;
+use App\Support\BranchAccess;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -15,8 +16,10 @@ class ProductController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
+        if ($request->filled('warehouse_id')) BranchAccess::requireWarehouse($request->user(), $request->integer('warehouse_id'));
+        $allowedIds = BranchAccess::warehouseIds($request->user());
         $warehouse = Warehouse::query()->with('locations')->where('is_active', true)->find($request->integer('warehouse_id'))
-            ?? Warehouse::query()->with('locations')->where('is_active', true)->orderBy('id')->first();
+            ?? Warehouse::query()->with('locations')->where('is_active', true)->whereIn('id', $allowedIds)->orderBy('id')->first();
         $locationId = $warehouse?->locations->firstWhere('is_default', true)?->id
             ?? $warehouse?->locations->first()?->id;
         $includeInactive = $request->boolean('include_inactive');

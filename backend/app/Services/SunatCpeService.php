@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\Branch;
 use App\Models\Sale;
 use App\Models\SaleDocument;
 use App\Models\SunatSetting;
@@ -39,7 +40,9 @@ class SunatCpeService
         abort_if($settings->environment === 'beta' && ! $settings->ruc, 422, 'Beta requiere el RUC emisor para autenticar y nombrar el XML.');
         abort_unless(in_array($documentType, ['invoice', 'receipt'], true), 422, 'Tipo de comprobante no admitido.');
 
-        $sale->loadMissing(['lines', 'customer']);
+        $sale->loadMissing(['lines', 'customer', 'warehouse']);
+        $branchId = $sale->warehouse?->branch_id;
+        abort_unless($branchId, 422, 'Asigna la venta a una tienda antes de emitir.');
         if ($documentType === 'invoice' && ($sale->customer?->tax_id_type !== 'ruc' || ! preg_match('/^\d{11}$/', (string) $sale->customer?->tax_id))) {
             throw ValidationException::withMessages(['customer' => 'La factura requiere un cliente registrado con RUC de 11 dígitos.']);
         }
@@ -57,11 +60,11 @@ class SunatCpeService
         }
 
         $counterColumn = 'next_'.($documentType === 'invoice' ? 'invoice' : 'receipt').'_'.$settings->environment;
-        $document = DB::transaction(function () use ($settings, $counterColumn, $sale, $documentType, $user): SaleDocument {
-            $locked = SunatSetting::query()->whereKey($settings->id)->lockForUpdate()->firstOrFail();
-            $number = (string) $locked->{$counterColumn};
-            $locked->increment($counterColumn);
-            $series = $documentType === 'invoice' ? $locked->invoice_series : $locked->receipt_series;
+        $document = DB::transaction(function () use ($settings, $counterColumn, $sale, $documentType, $user, $branchId): SaleDocument {
+            $branch = Branch::query()->whereKey($branchId)->lockForUpdate()->firstOrFail();
+            $number = (string) $branch->{$counterColumn};
+            $branch->increment($counterColumn);
+            $series = $documentType === 'invoice' ? $branch->invoice_series : $branch->receipt_series;
 
             return $sale->documents()->create([
                 'user_id' => $user->id,
@@ -71,7 +74,7 @@ class SunatCpeService
                 'issue_date' => now()->toDateString(),
                 'total_cents' => $sale->total_cents,
                 'issued_via' => 'see_contributor',
-                'environment' => $locked->environment,
+                'environment' => $settings->environment,
                 'status' => 'sending',
                 'sent_at' => now(),
             ]);

@@ -11,6 +11,7 @@ use App\Services\SaleReturnService;
 use App\Services\SalesService;
 use App\Services\SaleTicketPdf;
 use App\Services\SunatCpeService;
+use App\Support\BranchAccess;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -58,7 +59,10 @@ class SalesController extends Controller
     {
         $warehouseId = $request->integer('warehouse_id');
 
-        return response()->json(['data' => Sale::query()->with(['lines', 'payments', 'cashSession', 'customer', 'returns.lines', 'documents.user'])->when($warehouseId, fn ($q) => $q->where('warehouse_id', $warehouseId))->latest('sold_at')->limit(100)->get()]);
+        $query = Sale::query()->with(['lines', 'payments', 'cashSession', 'customer', 'returns.lines', 'documents.user']);
+        BranchAccess::scopeWarehouses($query, $request->user());
+
+        return response()->json(['data' => $query->when($warehouseId, fn ($q) => $q->where('warehouse_id', $warehouseId))->latest('sold_at')->limit(100)->get()]);
     }
 
     public function registerExternalDocument(Request $request, Sale $sale): JsonResponse
@@ -78,6 +82,11 @@ class SalesController extends Controller
         $seriesPrefix = $data['document_type'] === 'invoice' ? 'F' : 'B';
         if (! str_starts_with($data['series'], $seriesPrefix)) {
             throw ValidationException::withMessages(['series' => $data['document_type'] === 'invoice' ? 'La serie de factura debe iniciar con F.' : 'La serie de boleta debe iniciar con B.']);
+        }
+        $sale->loadMissing('warehouse.branch');
+        $branchSeries = $data['document_type'] === 'invoice' ? $sale->warehouse?->branch?->invoice_series : $sale->warehouse?->branch?->receipt_series;
+        if ($branchSeries && $data['series'] !== $branchSeries) {
+            throw ValidationException::withMessages(['series' => 'La serie debe corresponder a la tienda de esta venta: '.$branchSeries.'.']);
         }
         if ((int) $data['total_cents'] !== (int) $sale->total_cents) {
             throw ValidationException::withMessages(['total_cents' => 'El total registrado debe coincidir con el total de la venta.']);
@@ -204,7 +213,10 @@ class SalesController extends Controller
 
     public function sessions(Request $request): JsonResponse
     {
-        return response()->json(['data' => CashSession::query()->with('warehouse')->where('status', 'open')->latest('opened_at')->get()]);
+        $query = CashSession::query()->with('warehouse')->where('status', 'open');
+        BranchAccess::scopeWarehouses($query, $request->user());
+
+        return response()->json(['data' => $query->latest('opened_at')->get()]);
     }
 
     public function openSession(Request $request): JsonResponse

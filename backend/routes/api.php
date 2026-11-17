@@ -8,9 +8,16 @@ Route::middleware('web')->prefix('v1/auth')->group(function (): void {
     Route::post('/logout', [\App\Http\Controllers\Api\V1\AuthController::class, 'logout'])->middleware('auth:sanctum');
 });
 
-Route::get('/user', function (Request $request) { return $request->user(); })->middleware('auth:sanctum');
+Route::get('/user', function (Request $request) { return $request->user()->load('branches:id,code,name'); })->middleware('auth:sanctum');
 
-Route::middleware('auth:sanctum')->prefix('v1')->group(function (): void {
+Route::middleware(['auth:sanctum', 'branch.staff'])->prefix('v1')->group(function (): void {
+    Route::get('/branches', [\App\Http\Controllers\Api\V1\BranchController::class, 'index']);
+    Route::patch('/branches/{branch}', [\App\Http\Controllers\Api\V1\BranchController::class, 'update']);
+    Route::get('/company', [\App\Http\Controllers\Api\V1\BranchController::class, 'company']);
+    Route::patch('/company', [\App\Http\Controllers\Api\V1\BranchController::class, 'updateCompany']);
+    Route::get('/store-users', [\App\Http\Controllers\Api\V1\StoreUserController::class, 'index']);
+    Route::post('/store-users', [\App\Http\Controllers\Api\V1\StoreUserController::class, 'store']);
+    Route::patch('/store-users/{user}', [\App\Http\Controllers\Api\V1\StoreUserController::class, 'update']);
     Route::get('/sunat/mode', [\App\Http\Controllers\Api\V1\SunatSettingsController::class, 'mode']);
     Route::get('/sunat/settings', [\App\Http\Controllers\Api\V1\SunatSettingsController::class, 'show']);
     Route::put('/sunat/settings', [\App\Http\Controllers\Api\V1\SunatSettingsController::class, 'update']);

@@ -7,7 +7,24 @@ body { font-family: "DejaVu Sans", sans-serif; font-size: 9px; color: #17191c; }
 table { width: 100%; border-collapse: collapse; } td { padding: 3px 0; vertical-align: top; }
 .right { text-align: right; }.total { font-size: 13px; font-weight: bold; }.item { padding: 5px 0; border-bottom: 1px solid #ddd; }
 </style></head><body>
-<div class="center"><img class="logo" src="data:image/jpeg;base64,{{ $logo }}"><div class="brand">U.LIONS IMPORT</div><div>{{ $sale->warehouse?->name }}</div><div class="muted">Ticket interno de venta</div></div>
+<div class="center">
+<img class="logo" src="data:image/jpeg;base64,{{ $logo }}">
+<div class="brand">{{ $company?->trade_name ?: 'U.LIONS IMPORT' }}</div>
+<div>{{ $sale->warehouse?->branch?->name ?: $sale->warehouse?->name }}</div>
+@if($sale->warehouse?->branch?->address)
+<div>{{ $sale->warehouse->branch->address }}</div>
+@endif
+@if($company?->ruc)
+<div>RUC {{ $company->ruc }}</div>
+@endif
+@if($company?->legal_name)
+<div>{{ $company->legal_name }}</div>
+@endif
+@if($company?->fiscal_address)
+<div class="muted">Domicilio fiscal: {{ $company->fiscal_address }}</div>
+@endif
+<div class="muted">Ticket interno de venta</div>
+</div>
 <div class="rule"></div>
 <table><tr><td>Venta</td><td class="right">{{ $sale->sale_number }}</td></tr><tr><td>Fecha</td><td class="right">{{ $sale->sold_at?->format('d/m/Y H:i') }}</td></tr><tr><td>Cliente</td><td class="right">{{ $sale->customer_name ?: 'Venta al público' }}</td></tr></table>
 <div class="rule"></div>

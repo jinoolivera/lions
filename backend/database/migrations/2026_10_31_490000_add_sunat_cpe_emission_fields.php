@@ -24,7 +24,7 @@ return new class extends Migration
             $table->text('sunat_message')->nullable();
             $table->string('sunat_ticket', 80)->nullable();
             $table->timestamp('sent_at')->nullable();
-            $table->dropForeign('sale_documents_sale_id_foreign');
+            $table->dropForeign(['sale_id']);
             $table->dropUnique('sale_documents_sale_id_unique');
             $table->dropUnique('sale_documents_series_number_unique');
             $table->unique(['sale_id', 'environment'], 'sale_documents_sale_environment_unique');
@@ -40,7 +40,7 @@ return new class extends Migration
             $table->dropIndex(['environment', 'status']);
             $table->dropUnique('sale_documents_sale_environment_unique');
             $table->dropUnique('sale_documents_environment_series_number_unique');
-            $table->dropForeign('sale_documents_sale_id_foreign');
+            $table->dropForeign(['sale_id']);
             $table->unique('sale_id');
             $table->unique(['series', 'number']);
             $table->dropColumn(['environment', 'xml_path', 'cdr_path', 'sunat_response_code', 'sunat_message', 'sunat_ticket', 'sent_at']);

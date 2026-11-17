@@ -19,7 +19,7 @@ class AuthController extends Controller
 
         $request->session()->regenerate();
 
-        return response()->json(['user' => $request->user('web')]);
+        return response()->json(['user' => $request->user('web')->load('branches:id,code,name')]);
     }
 
     public function logout(Request $request): JsonResponse

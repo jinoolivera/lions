@@ -202,3 +202,18 @@ tbody tr:hover{background:#fcfaf5}
   .pos-layout{grid-template-columns:minmax(0,1fr)}
   .pos-right{position:static}
 }
+.store-settings{display:grid;gap:20px}
+.store-settings-panel{padding:0 0 22px}
+.store-settings-panel>.toolbar{padding:20px 22px;gap:12px;flex-wrap:wrap}
+.store-settings-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:18px;padding:20px 22px 0}
+.store-card{display:grid;align-content:start;gap:14px;padding:20px;border:1px solid #dfd7c5;border-radius:16px;background:#fcfbf7}
+.store-card .field,.store-company .field{margin:0}
+.store-card .button{justify-self:start}
+.store-wide{grid-column:1/-1}
+.store-company{align-items:end}
+.store-checks{display:flex;flex-wrap:wrap;gap:10px 18px;padding:10px 0}
+.store-checks label{display:flex;align-items:center;gap:6px;font-weight:600}
+.store-checks input{width:18px;height:18px}
+.branch-picker{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700}
+.branch-picker select{max-width:180px;min-height:40px;padding:7px 10px;border:1px solid #d8d5cb;border-radius:10px;background:#fff;font:inherit}
+@media(max-width:700px){.store-settings-grid{padding:14px;gap:14px}.store-settings-panel>.toolbar{padding:17px}.branch-picker span{display:none}.branch-picker select{max-width:125px;font-size:14px}.user-chip>.avatar,.user-chip>.avatar+span{display:none}.user-chip{gap:6px}}
