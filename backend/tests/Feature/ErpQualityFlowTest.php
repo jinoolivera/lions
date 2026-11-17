@@ -2,9 +2,12 @@
 
 namespace Tests\Feature;
 
+use App\Models\Branch;
 use App\Models\CashSession;
 use App\Models\Customer;
+use App\Models\FinanceCategory;
 use App\Models\Product;
+use App\Models\ProductPresentation;
 use App\Models\PurchaseOrder;
 use App\Models\Sale;
 use App\Models\StockBalance;
@@ -12,8 +15,9 @@ use App\Models\SupplierInvoice;
 use App\Models\User;
 use App\Models\Warehouse;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
 
 class ErpQualityFlowTest extends TestCase
@@ -60,7 +64,7 @@ class ErpQualityFlowTest extends TestCase
         $session = $this->postJson('/api/v1/cash/sessions', [
             'warehouse_id' => $warehouse->id, 'opening_cents' => 10000,
         ])->assertCreated()->json('data');
-        $categoryId = \App\Models\FinanceCategory::query()->where('type', 'expense')->value('id');
+        $categoryId = FinanceCategory::query()->where('type', 'expense')->value('id');
         $payload = [
             'operation_key' => 'quality-finance-expense-001', 'finance_category_id' => $categoryId,
             'warehouse_id' => $warehouse->id, 'cash_session_id' => $session['id'], 'type' => 'expense',
@@ -99,7 +103,7 @@ class ErpQualityFlowTest extends TestCase
         }
         $lines = [];
         foreach ($products as $product) {
-            $presentation = \App\Models\ProductPresentation::query()->where('product_id', $product['id'])->firstOrFail();
+            $presentation = ProductPresentation::query()->where('product_id', $product['id'])->firstOrFail();
             $lines[] = ['product_id' => $product['id'], 'presentation_id' => $presentation->id, 'quantity' => '2', 'unit_cost_cents' => 650];
         }
         $this->postJson('/api/v1/purchase-orders', [
@@ -110,7 +114,7 @@ class ErpQualityFlowTest extends TestCase
     public function test_only_management_can_approve_sale_discounts_and_discount_is_audited(): void
     {
         $manager = User::factory()->create(['role' => 'manager']);
-        $manager->branches()->attach(\App\Models\Branch::query()->where('code', 'LIONS_A')->value('id'));
+        $manager->branches()->attach(Branch::query()->where('code', 'LIONS_A')->value('id'));
         $this->actingAs(User::factory()->create(['role' => 'admin']), 'web');
         $warehouse = Warehouse::query()->where('code', 'MAIN')->firstOrFail();
         $product = $this->postJson('/api/v1/products', [
@@ -122,7 +126,7 @@ class ErpQualityFlowTest extends TestCase
             'product_id' => $product['id'], 'warehouse_id' => $warehouse->id, 'presentation_id' => $presentationId,
             'type' => 'opening', 'quantity' => 5, 'unit_cost_cents' => 5000, 'reason' => 'Apertura', 'operation_key' => 'discount-stock-001',
         ])->assertCreated();
-        \Illuminate\Support\Facades\Auth::forgetGuards();
+        Auth::forgetGuards();
         $this->actingAs($manager, 'web');
         $session = $this->postJson('/api/v1/cash/sessions', ['warehouse_id' => $warehouse->id, 'opening_cents' => 0])->assertCreated()->json('data');
         $salePayload = [
@@ -144,7 +148,7 @@ class ErpQualityFlowTest extends TestCase
     public function test_cashier_cannot_submit_sale_discount(): void
     {
         $cashier = User::factory()->create(['role' => 'cashier']);
-        $cashier->branches()->attach(\App\Models\Branch::query()->where('code', 'LIONS_A')->value('id'));
+        $cashier->branches()->attach(Branch::query()->where('code', 'LIONS_A')->value('id'));
         $this->actingAs(User::factory()->create(['role' => 'admin']), 'web');
         $warehouse = Warehouse::query()->where('code', 'MAIN')->firstOrFail();
         $product = $this->postJson('/api/v1/products', [
@@ -156,7 +160,7 @@ class ErpQualityFlowTest extends TestCase
             'product_id' => $product['id'], 'warehouse_id' => $warehouse->id, 'presentation_id' => $presentationId,
             'type' => 'opening', 'quantity' => 5, 'unit_cost_cents' => 5000, 'reason' => 'Apertura', 'operation_key' => 'discount-stock-002',
         ])->assertCreated();
-        \Illuminate\Support\Facades\Auth::forgetGuards();
+        Auth::forgetGuards();
         $this->actingAs($cashier, 'web');
         $session = $this->postJson('/api/v1/cash/sessions', ['warehouse_id' => $warehouse->id, 'opening_cents' => 0])->assertCreated()->json('data');
         $this->postJson('/api/v1/sales', [
@@ -169,7 +173,7 @@ class ErpQualityFlowTest extends TestCase
     public function test_management_return_restock_partial_quantity_and_cancel_a_sale(): void
     {
         $manager = User::factory()->create(['role' => 'manager']);
-        $manager->branches()->attach(\App\Models\Branch::query()->where('code', 'LIONS_A')->value('id'));
+        $manager->branches()->attach(Branch::query()->where('code', 'LIONS_A')->value('id'));
         $this->actingAs(User::factory()->create(['role' => 'admin']), 'web');
         $warehouse = Warehouse::query()->where('code', 'MAIN')->firstOrFail();
         $product = $this->postJson('/api/v1/products', [
@@ -181,7 +185,7 @@ class ErpQualityFlowTest extends TestCase
             'product_id' => $product['id'], 'warehouse_id' => $warehouse->id, 'presentation_id' => $presentationId,
             'type' => 'opening', 'quantity' => 5, 'unit_cost_cents' => 5000, 'reason' => 'Apertura', 'operation_key' => 'return-stock-001',
         ])->assertCreated();
-        \Illuminate\Support\Facades\Auth::forgetGuards();
+        Auth::forgetGuards();
         $this->actingAs($manager, 'web');
         $session = $this->postJson('/api/v1/cash/sessions', ['warehouse_id' => $warehouse->id, 'opening_cents' => 0])->assertCreated()->json('data');
         $sale = $this->postJson('/api/v1/sales', [
@@ -201,7 +205,7 @@ class ErpQualityFlowTest extends TestCase
         ])->assertCreated()->assertJsonPath('data.amount_cents', 10000);
         $this->assertSame('cancelled', Sale::query()->findOrFail($sale['id'])->status);
         $this->assertSame('5.000000', StockBalance::query()->where('product_id', $product['id'])->value('physical_quantity'));
-        \Illuminate\Support\Facades\Auth::forgetGuards();
+        Auth::forgetGuards();
         $this->actingAs(User::factory()->create(['role' => 'admin']), 'web');
         $this->getJson('/api/v1/reports/overview?from='.now()->toDateString().'&to='.now()->toDateString().'&warehouse_id='.$warehouse->id)
             ->assertOk()->assertJsonPath('data.sales.total_cents', 0)->assertJsonPath('data.finance.cost_of_goods_cents', 0)
@@ -315,7 +319,7 @@ class ErpQualityFlowTest extends TestCase
             'sku' => 'SKU-LANDED-001', 'name' => 'Producto con gasto prorrateado', 'base_unit' => 'unidad',
             'minimum_stock' => 0, 'presentations' => [['name' => 'unidad', 'factor_to_base' => 1, 'price_cents' => 1500, 'is_base' => true]],
         ])->assertCreated()->json('data');
-        $presentation = \App\Models\ProductPresentation::query()->where('product_id', $product['id'])->firstOrFail();
+        $presentation = ProductPresentation::query()->where('product_id', $product['id'])->firstOrFail();
         $order = $this->postJson('/api/v1/purchase-orders', [
             'operation_key' => 'quality-landed-order-001', 'supplier_id' => $supplier['id'], 'landed_cost_cents' => 400,
             'lines' => [['product_id' => $product['id'], 'presentation_id' => $presentation->id, 'quantity' => '4', 'unit_cost_cents' => 1000]],
@@ -481,6 +485,11 @@ class ErpQualityFlowTest extends TestCase
             'shipment_key' => 'quality-shipment-001', 'lines' => [['delivery_order_line_id' => $deliveryLineId, 'quantity' => '1']],
         ])->assertCreated()->json('data');
         $this->assertNotNull($shipment['sale']);
+        $this->postJson('/api/v1/sales/'.$shipment['sale_id'].'/shipments', [
+            'shipment_key' => 'duplicate-order-shipment', 'recipient_name' => 'Cliente',
+            'delivery_address' => 'Calle de prueba', 'guide_required' => false,
+            'lines' => [['sale_line_id' => Sale::query()->findOrFail($shipment['sale_id'])->lines()->firstOrFail()->id, 'quantity' => '1']],
+        ])->assertUnprocessable();
         $balance = StockBalance::query()->where('product_id', $productModel->id)->firstOrFail();
         $this->assertSame('276.000000', $balance->physical_quantity);
         $this->assertSame('12.000000', $balance->reserved_quantity);

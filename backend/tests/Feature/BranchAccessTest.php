@@ -105,8 +105,22 @@ class BranchAccessTest extends TestCase
         ])->assertCreated()->assertJsonPath('data.warehouse_id', $warehouseB->id)->json('data');
         $this->getJson('/api/v1/sales')->assertOk()->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.id', $sale['id']);
+        $this->getJson('/api/v1/sales/archive')->assertOk()->assertJsonPath('meta.total', 1)->assertJsonPath('data.0.id', $sale['id']);
+        $this->getJson('/api/v1/sales/archive?warehouse_id='.$warehouseA->id)->assertForbidden();
+        $this->getJson('/api/v1/sales/'.$sale['id'])->assertOk()->assertJsonPath('data.id', $sale['id']);
+        $this->getJson('/api/v1/sales/'.$otherSale->id)->assertForbidden();
+        $this->patchJson('/api/v1/sales/'.$otherSale->id.'/billing', ['requested_document_type' => 'receipt', 'customer_id' => null])->assertForbidden();
         $this->getJson('/api/v1/sales?warehouse_id='.$warehouseA->id)->assertForbidden();
         $this->getJson('/api/v1/sales/'.$sale['id'].'/ticket/link')->assertOk();
         $this->getJson('/api/v1/sales/'.$otherSale->id.'/ticket/link')->assertForbidden();
+        $shipmentData = [
+            'shipment_key' => 'branch-b-shipment-001', 'recipient_name' => 'Cliente tienda B',
+            'delivery_address' => 'Calle B 123', 'guide_required' => false,
+            'lines' => [['sale_line_id' => $sale['lines'][0]['id'], 'quantity' => '1']],
+        ];
+        $this->postJson('/api/v1/sales/'.$otherSale->id.'/shipments', $shipmentData)->assertForbidden();
+        $shipment = $this->postJson('/api/v1/sales/'.$sale['id'].'/shipments', $shipmentData)->assertCreated()->json('data');
+        $this->postJson('/api/v1/sales/'.$otherSale->id.'/shipments/'.$shipment['id'].'/dispatch', ['guide_required' => false])->assertForbidden();
+        $this->postJson('/api/v1/sales/'.$sale['id'].'/shipments/'.$shipment['id'].'/dispatch', ['guide_required' => false])->assertOk();
     }
 }

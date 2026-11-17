@@ -7,9 +7,8 @@ use App\Models\Customer;
 use App\Models\Product;
 use App\Models\ProductPresentation;
 use App\Models\Sale;
-use App\Models\Warehouse;
-use App\Models\WarehouseLocation;
 use App\Models\User;
+use App\Models\Warehouse;
 use Brick\Math\BigDecimal;
 use Brick\Math\RoundingMode;
 use Illuminate\Support\Facades\DB;
@@ -26,6 +25,7 @@ class SalesService
         $normalized['customer_id'] = isset($data['customer_id']) ? (int) $data['customer_id'] : null;
         $normalized['price_list'] = $data['price_list'] ?? 'retail';
         $normalized['warehouse_location_id'] = $data['warehouse_location_id'] ?? null;
+        $normalized['requested_document_type'] = $data['requested_document_type'] ?? null;
         $normalized['lines'] = collect($data['lines'])->map(fn ($line) => [
             'product_id' => (int) $line['product_id'], 'presentation_id' => (int) $line['presentation_id'], 'quantity' => (string) $line['quantity'], 'discount_cents' => (int) ($line['discount_cents'] ?? 0), 'unit_price_cents' => isset($line['unit_price_cents']) ? (int) $line['unit_price_cents'] : null,
         ])->all();
@@ -40,6 +40,7 @@ class SalesService
                 if (! hash_equals($existing->payload_hash, $payloadHash)) {
                     throw new ConflictHttpException('La clave de operación ya fue usada con datos distintos.');
                 }
+
                 return $existing->load(['lines', 'payments']);
             }
 
@@ -50,7 +51,9 @@ class SalesService
             $location = isset($data['warehouse_location_id'])
                 ? $warehouse->locations->firstWhere('id', (int) $data['warehouse_location_id'])
                 : ($warehouse->locations->firstWhere('is_default', true) ?? $warehouse->locations->first());
-            if (! $location) throw ValidationException::withMessages(['warehouse_location_id' => 'Selecciona una ubicación activa del almacén de la caja.']);
+            if (! $location) {
+                throw ValidationException::withMessages(['warehouse_location_id' => 'Selecciona una ubicación activa del almacén de la caja.']);
+            }
             $computed = [];
             $subtotal = 0;
             $total = 0;
@@ -58,7 +61,9 @@ class SalesService
                 $product = Product::query()->where('is_active', true)->findOrFail($line['product_id']);
                 $presentation = ProductPresentation::query()->where('product_id', $product->id)->where('is_active', true)->findOrFail($line['presentation_id']);
                 $quantity = BigDecimal::of((string) $line['quantity'])->toScale(6, RoundingMode::UNNECESSARY);
-                if (! $quantity->isPositive()) throw ValidationException::withMessages(['lines' => 'La cantidad debe ser mayor que cero.']);
+                if (! $quantity->isPositive()) {
+                    throw ValidationException::withMessages(['lines' => 'La cantidad debe ser mayor que cero.']);
+                }
                 $baseQuantity = $quantity->multipliedBy($presentation->factor_to_base)->toScale(6, RoundingMode::UNNECESSARY);
                 if (! $product->allows_fractional_quantity && $baseQuantity->stripTrailingZeros()->getScale() > 0) {
                     throw ValidationException::withMessages(['lines' => "La cantidad de {$product->name} no coincide con su unidad base."]);
@@ -73,7 +78,9 @@ class SalesService
                 }
                 $lineTotal = $quantity->multipliedBy((string) $unitPrice)->toScale(0, RoundingMode::HALF_UP)->toInt();
                 $discount = (int) ($line['discount_cents'] ?? 0);
-                if ($discount > $lineTotal) throw ValidationException::withMessages(['lines' => "El descuento de {$product->name} supera el importe de la línea."]);
+                if ($discount > $lineTotal) {
+                    throw ValidationException::withMessages(['lines' => "El descuento de {$product->name} supera el importe de la línea."]);
+                }
                 if ($discount > 0 && ! in_array($seller->role, ['admin', 'manager'], true)) {
                     throw ValidationException::withMessages(['lines' => 'Solo gerencia o administración pueden aprobar descuentos.']);
                 }
@@ -82,9 +89,19 @@ class SalesService
                 $computed[] = compact('product', 'presentation', 'quantity', 'unitPrice', 'lineTotal', 'discount');
             }
             $paid = array_sum(array_column($data['payments'] ?? [], 'amount_cents'));
-            if ($paid > $total) throw ValidationException::withMessages(['payments' => 'La suma de pagos excede el total de la venta.']);
+            if ($paid > $total) {
+                throw ValidationException::withMessages(['payments' => 'La suma de pagos excede el total de la venta.']);
+            }
             $credit = $total - $paid;
-            if ($credit > 0 && $customer === null) throw ValidationException::withMessages(['customer_id' => 'Selecciona un cliente para registrar el saldo a crédito.']);
+            if (($data['requested_document_type'] ?? null) === 'invoice' && ($customer?->tax_id_type !== 'ruc' || ! preg_match('/^\d{11}$/', (string) $customer?->tax_id))) {
+                throw ValidationException::withMessages(['customer_id' => 'Para solicitar factura selecciona un cliente con RUC de 11 dígitos.']);
+            }
+            if (($data['requested_document_type'] ?? null) === 'receipt' && $total > 70000 && (! $customer?->tax_id || ! $customer?->name)) {
+                throw ValidationException::withMessages(['customer_id' => 'La boleta mayor a S/ 700 requiere un cliente identificado.']);
+            }
+            if ($credit > 0 && $customer === null) {
+                throw ValidationException::withMessages(['customer_id' => 'Selecciona un cliente para registrar el saldo a crédito.']);
+            }
             if ($credit > 0) {
                 $outstanding = (int) $customer->sales()->whereColumn('total_cents', '>', 'paid_cents')->selectRaw('SUM(total_cents - paid_cents) as aggregate')->value('aggregate');
                 if ($outstanding + $credit > $customer->credit_limit_cents) {
@@ -95,11 +112,12 @@ class SalesService
             $sale = Sale::query()->create([
                 'cash_session_id' => $session->id, 'warehouse_id' => $warehouse->id, 'warehouse_location_id' => $location->id, 'user_id' => $userId,
                 'customer_id' => $customer?->id,
-                'sale_number' => 'V-' . now()->format('YmdHis') . '-' . strtoupper(bin2hex(random_bytes(2))),
+                'sale_number' => 'V-'.now()->format('YmdHis').'-'.strtoupper(bin2hex(random_bytes(2))),
                 'operation_key' => $data['operation_key'], 'payload_hash' => $payloadHash,
                 'customer_name' => $customer?->name ?? ($data['customer_name'] ?? null), 'subtotal_cents' => $subtotal,
                 'total_cents' => $total, 'paid_cents' => $paid, 'status' => $credit > 0 ? 'open' : 'completed', 'sold_at' => now(),
                 'due_date' => $credit > 0 ? ($data['due_date'] ?? null) : null,
+                'requested_document_type' => $data['requested_document_type'] ?? null,
             ]);
             foreach ($computed as $index => $row) {
                 $line = $sale->lines()->create([
@@ -111,18 +129,19 @@ class SalesService
                 ]);
                 if (! $inventoryAlreadyConsumed) {
                     $this->inventory->record($row['product'], $location, $row['presentation'], 'sale', (string) $row['quantity'],
-                        'Venta ' . $sale->sale_number, 'sale:' . $data['operation_key'] . ':' . $index, $userId, null, $sale->id);
+                        'Venta '.$sale->sale_number, 'sale:'.$data['operation_key'].':'.$index, $userId, null, $sale->id);
                 }
             }
             foreach (($data['payments'] ?? []) as $index => $payment) {
                 $sale->payments()->create($payment + [
                     'cash_session_id' => $session->id, 'user_id' => $userId, 'kind' => 'sale',
-                    'operation_key' => 'sp-' . substr(hash('sha256', $data['operation_key'] . ':' . $index), 0, 60),
+                    'operation_key' => 'sp-'.substr(hash('sha256', $data['operation_key'].':'.$index), 0, 60),
                     'payload_hash' => hash('sha256', json_encode($payment, JSON_THROW_ON_ERROR)),
                 ]);
             }
             $cashPaid = collect($data['payments'] ?? [])->where('method', 'cash')->sum('amount_cents');
             $session->increment('expected_cents', $cashPaid);
+
             return $sale->load(['lines', 'payments']);
         }, 3);
     }

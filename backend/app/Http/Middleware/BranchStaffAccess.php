@@ -14,14 +14,16 @@ class BranchStaffAccess
     public function handle(Request $request, Closure $next): Response
     {
         $user = $request->user();
-        if ($user?->role === 'admin') return $next($request);
+        if ($user?->role === 'admin') {
+            return $next($request);
+        }
 
         $path = $request->path();
         $method = $request->method();
         $allowedGet = [
             'api/v1/branches', 'api/v1/sunat/mode', 'api/v1/products',
             'api/v1/product-categories', 'api/v1/product-masters', 'api/v1/customers',
-            'api/v1/warehouses', 'api/v1/cash/sessions', 'api/v1/sales',
+            'api/v1/warehouses', 'api/v1/cash/sessions', 'api/v1/sales', 'api/v1/sales/archive',
         ];
         $allowedPost = ['api/v1/customers', 'api/v1/cash/sessions', 'api/v1/sales'];
         $saleId = $request->route('sale');
@@ -34,7 +36,10 @@ class BranchStaffAccess
         $permitted = ($method === 'GET' && in_array($path, $allowedGet, true))
             || ($method === 'POST' && in_array($path, $allowedPost, true))
             || ($method === 'GET' && preg_match('#^api/v1/sales/\d+/ticket/link$#', $path))
+            || ($method === 'GET' && preg_match('#^api/v1/sales/\d+(?:/documents/\d+(?:/pdf|/adjustments/\d+/pdf))?$#', $path))
+            || ($method === 'PATCH' && preg_match('#^api/v1/sales/\d+/billing$#', $path))
             || ($method === 'POST' && preg_match('#^api/v1/sales/\d+/ticket/email$#', $path))
+            || ($method === 'POST' && preg_match('#^api/v1/sales/\d+/shipments(?:/\d+/(?:dispatch|cancel))?$#', $path))
             || ($method === 'POST' && preg_match('#^api/v1/sales/\d+/payments$#', $path))
             || ($user->role === 'manager' && $method === 'POST' && preg_match('#^api/v1/sales/\d+/(returns|cancel)$#', $path))
             || ($method === 'POST' && preg_match('#^api/v1/cash/sessions/\d+/close$#', $path));

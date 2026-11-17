@@ -16,6 +16,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
@@ -52,6 +53,7 @@ class SalesController extends Controller
                 ->subject('Ticket de venta '.$sale->sale_number.' · U.LIONS')
                 ->attachData($attachment, 'ticket-'.$sale->sale_number.'.pdf', ['mime' => 'application/pdf']);
         });
+
         return response()->json(['message' => 'Ticket enviado por correo.']);
     }
 
@@ -59,10 +61,54 @@ class SalesController extends Controller
     {
         $warehouseId = $request->integer('warehouse_id');
 
-        $query = Sale::query()->with(['lines', 'payments', 'cashSession', 'customer', 'returns.lines', 'documents.user']);
+        $query = Sale::query()->with(['lines', 'payments', 'cashSession', 'customer', 'returns.lines', 'documents.user', 'documents.adjustments.user', 'shipments.lines.saleLine', 'shipments.guide']);
         BranchAccess::scopeWarehouses($query, $request->user());
 
         return response()->json(['data' => $query->when($warehouseId, fn ($q) => $q->where('warehouse_id', $warehouseId))->latest('sold_at')->limit(100)->get()]);
+    }
+
+    public function archive(Request $request): JsonResponse
+    {
+        $filters = $request->validate([
+            'warehouse_id' => ['nullable', 'integer', 'exists:warehouses,id'],
+            'from' => ['nullable', 'date_format:Y-m-d'], 'to' => ['nullable', 'date_format:Y-m-d'],
+            'q' => ['nullable', 'string', 'max:100'],
+            'status' => ['nullable', 'in:open,completed,cancelled,returned'],
+            'document' => ['nullable', 'in:pending,external,beta,production'],
+            'page' => ['nullable', 'integer', 'min:1'],
+        ]);
+        $query = Sale::query()->with(['customer:id,name,tax_id,tax_id_type', 'documents.adjustments', 'shipments.guide']);
+        BranchAccess::scopeWarehouses($query, $request->user());
+        $query->when($filters['warehouse_id'] ?? null, fn ($q, $id) => $q->where('warehouse_id', $id))
+            ->when($filters['from'] ?? null, fn ($q, $date) => $q->whereDate('sold_at', '>=', $date))
+            ->when($filters['to'] ?? null, fn ($q, $date) => $q->whereDate('sold_at', '<=', $date))
+            ->when($filters['status'] ?? null, fn ($q, $status) => $q->where('status', $status));
+        if ($search = trim((string) ($filters['q'] ?? ''))) {
+            $query->where(fn ($q) => $q->where('sale_number', 'like', "%{$search}%")
+                ->orWhere('customer_name', 'like', "%{$search}%")
+                ->orWhereHas('customer', fn ($customer) => $customer->where('tax_id', 'like', "%{$search}%")));
+        }
+        if (($filters['document'] ?? null) === 'pending') {
+            $query->whereDoesntHave('documents', fn ($q) => $q->whereIn('environment', ['external', 'production']));
+        } elseif (isset($filters['document'])) {
+            $query->whereHas('documents', fn ($q) => $q->where('environment', $filters['document']));
+        }
+        $sales = $query->latest('sold_at')->paginate(25);
+
+        return response()->json(['data' => $sales->items(), 'meta' => [
+            'current_page' => $sales->currentPage(), 'last_page' => $sales->lastPage(),
+            'total' => $sales->total(), 'per_page' => $sales->perPage(),
+        ]]);
+    }
+
+    public function show(Request $request, Sale $sale): JsonResponse
+    {
+        BranchAccess::requireWarehouse($request->user(), $sale->warehouse_id);
+
+        return response()->json(['data' => $sale->load([
+            'lines', 'payments', 'cashSession', 'warehouse.branch', 'customer', 'returns.lines',
+            'documents.user', 'documents.adjustments.user', 'shipments.lines.saleLine', 'shipments.guide',
+        ])]);
     }
 
     public function registerExternalDocument(Request $request, Sale $sale): JsonResponse
@@ -78,7 +124,11 @@ class SalesController extends Controller
             'issue_date' => ['required', 'date_format:Y-m-d', 'before_or_equal:today'],
             'total_cents' => ['required', 'integer', 'min:1'],
             'issued_via' => ['required', 'in:see_sol,pse'],
+            'pdf' => ['nullable', 'file', 'mimes:pdf', 'max:5120'],
         ]);
+        if ($sale->requested_document_type && $sale->requested_document_type !== $data['document_type']) {
+            throw ValidationException::withMessages(['document_type' => 'El tipo no coincide con el solicitado en la venta. Actualiza primero sus datos de facturación.']);
+        }
         $seriesPrefix = $data['document_type'] === 'invoice' ? 'F' : 'B';
         if (! str_starts_with($data['series'], $seriesPrefix)) {
             throw ValidationException::withMessages(['series' => $data['document_type'] === 'invoice' ? 'La serie de factura debe iniciar con F.' : 'La serie de boleta debe iniciar con B.']);
@@ -91,20 +141,34 @@ class SalesController extends Controller
         if ((int) $data['total_cents'] !== (int) $sale->total_cents) {
             throw ValidationException::withMessages(['total_cents' => 'El total registrado debe coincidir con el total de la venta.']);
         }
-        if ($sale->documents()->exists()) {
+        if ($sale->documents()->whereIn('environment', ['external', 'production'])->exists()) {
             throw ValidationException::withMessages(['document_type' => 'Esta venta ya tiene un comprobante vinculado.']);
         }
-        if (\App\Models\SaleDocument::query()->where('series', $data['series'])->where('number', $data['number'])->exists()) {
+        if (\App\Models\SaleDocument::query()->whereIn('environment', ['external', 'production'])->where('series', $data['series'])->where('number', $data['number'])->exists()) {
             throw ValidationException::withMessages(['number' => 'Ese comprobante ya fue registrado en otra venta.']);
         }
         if ($data['document_type'] === 'invoice' && ($sale->customer?->tax_id_type !== 'ruc' || ! preg_match('/^\d{11}$/', (string) $sale->customer?->tax_id))) {
             throw ValidationException::withMessages(['document_type' => 'Para registrar factura, la venta debe tener cliente registrado con RUC de 11 dígitos.']);
         }
+        if ($data['document_type'] === 'receipt' && $sale->total_cents > 70000 && (! $sale->customer?->tax_id || ! $sale->customer?->name)) {
+            throw ValidationException::withMessages(['document_type' => 'La boleta mayor a S/ 700 requiere un cliente identificado.']);
+        }
 
-        $document = $sale->documents()->create($data + [
-            'user_id' => $request->user()->id,
-            'status' => 'registered_external',
-        ]);
+        $pdfPath = $request->file('pdf')?->store('cpe/external', 'local');
+        try {
+            $document = $sale->documents()->create(collect($data)->except('pdf')->all() + [
+                'user_id' => $request->user()->id,
+                'status' => 'registered_external', 'pdf_path' => $pdfPath,
+            ]);
+            if (! $sale->requested_document_type) {
+                $sale->forceFill(['requested_document_type' => $data['document_type']])->save();
+            }
+        } catch (\Throwable $exception) {
+            if ($pdfPath) {
+                Storage::disk('local')->delete($pdfPath);
+            }
+            throw $exception;
+        }
 
         return response()->json(['data' => $document->load('user')], 201);
     }
@@ -132,6 +196,7 @@ class SalesController extends Controller
             'customer_id' => ['nullable', 'integer', 'exists:customers,id'], 'customer_name' => ['nullable', 'string', 'max:180'], 'lines' => ['required', 'array', 'min:1', 'max:100'],
             'warehouse_location_id' => ['sometimes', 'integer', 'exists:warehouse_locations,id'],
             'due_date' => ['nullable', 'date', 'after_or_equal:today'],
+            'requested_document_type' => ['nullable', 'in:invoice,receipt'],
             'price_list' => ['sometimes', 'in:retail,wholesale'],
             'lines.*.product_id' => ['required', 'integer', 'exists:products,id'], 'lines.*.presentation_id' => ['required', 'integer', 'exists:product_presentations,id'],
             'lines.*.quantity' => ['required', 'numeric', 'gt:0', 'max:999999999999'],

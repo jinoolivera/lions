@@ -39,12 +39,18 @@ class SunatCpeService
         abort_if($settings->environment === 'production' && (! $settings->sol_user || ! $settings->sol_password || ! $settings->certificate_path), 422, 'Producción requiere usuario SOL secundario y certificado digital.');
         abort_if($settings->environment === 'beta' && ! $settings->ruc, 422, 'Beta requiere el RUC emisor para autenticar y nombrar el XML.');
         abort_unless(in_array($documentType, ['invoice', 'receipt'], true), 422, 'Tipo de comprobante no admitido.');
+        if ($sale->requested_document_type && $sale->requested_document_type !== $documentType) {
+            throw ValidationException::withMessages(['document_type' => 'El tipo no coincide con el solicitado en la venta.']);
+        }
 
         $sale->loadMissing(['lines', 'customer', 'warehouse']);
         $branchId = $sale->warehouse?->branch_id;
         abort_unless($branchId, 422, 'Asigna la venta a una tienda antes de emitir.');
         if ($documentType === 'invoice' && ($sale->customer?->tax_id_type !== 'ruc' || ! preg_match('/^\d{11}$/', (string) $sale->customer?->tax_id))) {
             throw ValidationException::withMessages(['customer' => 'La factura requiere un cliente registrado con RUC de 11 dígitos.']);
+        }
+        if ($documentType === 'receipt' && $sale->total_cents > 70000 && (! $sale->customer?->tax_id || ! $sale->customer?->name)) {
+            throw ValidationException::withMessages(['customer' => 'La boleta mayor a S/ 700 requiere un cliente identificado.']);
         }
         if (! $sale->lines->count()) {
             throw ValidationException::withMessages(['sale' => 'La venta no contiene líneas para emitir.']);
