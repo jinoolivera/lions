@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\BranchController;
 use App\Http\Controllers\Api\V1\CustomerController;
+use App\Http\Controllers\Api\V1\DeliveryGuidePdfController;
 use App\Http\Controllers\Api\V1\DeliveryOrderController;
 use App\Http\Controllers\Api\V1\DirectSaleShipmentController;
 use App\Http\Controllers\Api\V1\FinanceController;
@@ -98,6 +99,9 @@ Route::middleware(['auth:sanctum', 'branch.staff'])->prefix('v1')->group(functio
     Route::post('/sales/{sale}/shipments', [DirectSaleShipmentController::class, 'prepare']);
     Route::post('/sales/{sale}/shipments/{shipment}/dispatch', [DirectSaleShipmentController::class, 'dispatch']);
     Route::post('/sales/{sale}/shipments/{shipment}/cancel', [DirectSaleShipmentController::class, 'cancel']);
+    Route::post('/sales/{sale}/shipments/{shipment}/guide/pdf', [DeliveryGuidePdfController::class, 'upload']);
+    Route::get('/sales/{sale}/shipments/{shipment}/guide/link', [DeliveryGuidePdfController::class, 'link']);
+    Route::post('/sales/{sale}/shipments/{shipment}/guide/email', [DeliveryGuidePdfController::class, 'email'])->middleware('throttle:10,1');
     Route::post('/sales/{sale}/ticket/email', [SalesController::class, 'emailTicket'])->middleware('throttle:10,1');
     Route::get('/sales/{sale}/ticket/link', [SalesController::class, 'ticketLink'])->middleware('throttle:30,1');
     Route::post('/sales/{sale}/sunat-document', [SalesController::class, 'issueSunatDocument']);

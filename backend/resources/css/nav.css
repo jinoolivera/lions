@@ -264,11 +264,22 @@ tbody tr:hover{background:#fcfaf5}
 .sales-workspace-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin-bottom: 18px; }
 .sales-workspace-grid > div { display: grid; gap: 4px; padding: 14px; border: 1px solid #e6e8e1; border-radius: 12px; }
 .sales-workspace-lines > div, .sales-workspace-document { display: flex; align-items: center; flex-wrap: wrap; justify-content: space-between; gap: 12px; padding: 14px 0; border-top: 1px solid #e8e9e2; }
+.sales-workspace-guide-row { border-top: 1px solid #e8e9e2; padding: 4px 0 16px; }
+.sales-workspace-guide-row .sales-workspace-document { border-top: 0; }
+.sales-workspace-guide-actions { display: flex; align-items: end; flex-wrap: wrap; gap: 10px; padding: 4px 0 0; }
+.sales-workspace-guide-actions form { display: flex; align-items: end; flex-wrap: wrap; gap: 10px; min-width: 0; }
+.sales-workspace-guide-actions form:has(input[type="email"]) { flex: 1 1 280px; }
+.sales-workspace-guide-actions form:has(input[type="file"]) { flex: 1 1 100%; }
+.sales-workspace-guide-actions input[type="email"] { flex: 1 1 180px; min-width: 0; min-height: 44px; padding: 10px 12px; border: 1px solid #dce3dc; border-radius: 10px; font: inherit; }
+.sales-workspace-guide-actions label { display: grid; gap: 5px; flex: 1 1 240px; min-width: 0; }
+.sales-workspace-guide-actions input[type="file"] { max-width: 100%; min-width: 0; }
+.sales-workspace-guide-actions small { flex: 1 1 100%; color: #68776c; }
 .sales-workspace-form { display: flex; flex-wrap: wrap; align-items: end; gap: 12px; padding: 18px 0; border-top: 1px solid #e8e9e2; }
 .sales-workspace-form > strong, .sales-workspace-form > small { flex: 1 1 100%; }
 .sales-workspace-form > input, .sales-workspace-form > select, .sales-workspace-form > label { flex: 1 1 170px; min-width: 0; }
 .sales-workspace-form label { display: grid; gap: 5px; }
 .sales-workspace-form label input { max-width: 100%; }
+.sales-workspace-form input[type="file"] { display: block; width: 100%; min-width: 0; }
 @media (max-width: 700px) {
   .sales-workspace-dialog { max-height: 94dvh; }
   .sales-workspace-filters { padding: 14px; }
@@ -280,4 +291,5 @@ tbody tr:hover{background:#fcfaf5}
   .sales-workspace-detail > .panel { padding: 16px; }
   .sales-workspace-detail .toolbar { margin: -16px -16px 18px; }
   .sales-workspace-ticket-actions .button { width: 100%; justify-content: center; }
+  .sales-workspace-guide-actions > .button, .sales-workspace-guide-actions form > .button { flex: 1 1 100%; justify-content: center; }
 }

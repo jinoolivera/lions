@@ -10,6 +10,9 @@ use App\Models\StockBalance;
 use App\Models\User;
 use App\Models\Warehouse;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class DirectSaleShipmentTest extends TestCase
@@ -18,6 +21,7 @@ class DirectSaleShipmentTest extends TestCase
 
     public function test_one_direct_sale_can_be_prepared_in_parts_with_one_external_guide_per_required_dispatch(): void
     {
+        Storage::fake('local');
         $this->actingAs(User::factory()->create(['role' => 'admin']), 'web');
         $warehouse = Warehouse::query()->where('code', 'MAIN')->firstOrFail();
         $product = Product::query()->create([
@@ -62,6 +66,19 @@ class DirectSaleShipmentTest extends TestCase
         $this->postJson("/api/v1/sales/{$sale['id']}/shipments/{$first['id']}/dispatch", [
             'guide_required' => true, 'guide' => $guide,
         ])->assertOk()->assertJsonPath('data.status', 'dispatched')->assertJsonPath('data.guide.series', 'EG07');
+        $this->getJson("/api/v1/sales/{$sale['id']}/shipments/{$first['id']}/guide/link")->assertStatus(422);
+        $this->postJson("/api/v1/sales/{$sale['id']}/shipments/{$first['id']}/guide/pdf", [
+            'pdf' => UploadedFile::fake()->create('gre.pdf', 50, 'application/pdf'),
+        ])->assertOk()->assertJsonPath('data.has_pdf', true);
+        $url = $this->getJson("/api/v1/sales/{$sale['id']}/shipments/{$first['id']}/guide/link")->assertOk()->json('url');
+        $this->get(parse_url($url, PHP_URL_PATH).'?'.parse_url($url, PHP_URL_QUERY))->assertOk()->assertHeader('content-type', 'application/pdf');
+        $this->get('/guides/1/pdf')->assertForbidden();
+        $this->postJson("/api/v1/sales/{$sale['id']}/shipments/{$first['id']}/guide/email", ['email' => 'cliente@example.com'])->assertStatus(503);
+        config()->set('mail.default', 'resend');
+        config()->set('services.resend.key', 'test-key');
+        Mail::fake();
+        $this->postJson("/api/v1/sales/{$sale['id']}/shipments/{$first['id']}/guide/email", ['email' => 'cliente@example.com'])->assertOk();
+        Mail::assertSentCount(1);
         $this->postJson("/api/v1/sales/{$sale['id']}/shipments/{$first['id']}/dispatch", [
             'guide_required' => true, 'guide' => $guide,
         ])->assertConflict();

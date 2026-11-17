@@ -40,6 +40,8 @@ class BranchStaffAccess
             || ($method === 'PATCH' && preg_match('#^api/v1/sales/\d+/billing$#', $path))
             || ($method === 'POST' && preg_match('#^api/v1/sales/\d+/ticket/email$#', $path))
             || ($method === 'POST' && preg_match('#^api/v1/sales/\d+/shipments(?:/\d+/(?:dispatch|cancel))?$#', $path))
+            || ($method === 'POST' && preg_match('#^api/v1/sales/\d+/shipments/\d+/guide/(?:pdf|email)$#', $path))
+            || ($method === 'GET' && preg_match('#^api/v1/sales/\d+/shipments/\d+/guide/link$#', $path))
             || ($method === 'POST' && preg_match('#^api/v1/sales/\d+/payments$#', $path))
             || ($user->role === 'manager' && $method === 'POST' && preg_match('#^api/v1/sales/\d+/(returns|cancel)$#', $path))
             || ($method === 'POST' && preg_match('#^api/v1/cash/sessions/\d+/close$#', $path));

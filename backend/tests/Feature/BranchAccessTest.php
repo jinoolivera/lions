@@ -120,6 +120,8 @@ class BranchAccessTest extends TestCase
         ];
         $this->postJson('/api/v1/sales/'.$otherSale->id.'/shipments', $shipmentData)->assertForbidden();
         $shipment = $this->postJson('/api/v1/sales/'.$sale['id'].'/shipments', $shipmentData)->assertCreated()->json('data');
+        $this->getJson('/api/v1/sales/'.$otherSale->id.'/shipments/'.$shipment['id'].'/guide/link')->assertForbidden();
+        $this->postJson('/api/v1/sales/'.$otherSale->id.'/shipments/'.$shipment['id'].'/guide/pdf', [])->assertForbidden();
         $this->postJson('/api/v1/sales/'.$otherSale->id.'/shipments/'.$shipment['id'].'/dispatch', ['guide_required' => false])->assertForbidden();
         $this->postJson('/api/v1/sales/'.$sale['id'].'/shipments/'.$shipment['id'].'/dispatch', ['guide_required' => false])->assertOk();
     }

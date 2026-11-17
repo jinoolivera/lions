@@ -7,9 +7,29 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class DeliveryGuide extends Model
 {
-    protected $fillable = ['delivery_shipment_id', 'user_id', 'series', 'number', 'issue_date', 'issued_via', 'status'];
+    protected $appends = ['has_pdf'];
 
-    protected function casts(): array { return ['issue_date' => 'date:Y-m-d']; }
-    public function shipment(): BelongsTo { return $this->belongsTo(DeliveryShipment::class); }
-    public function user(): BelongsTo { return $this->belongsTo(User::class); }
+    protected $hidden = ['pdf_path'];
+
+    protected $fillable = ['delivery_shipment_id', 'user_id', 'series', 'number', 'issue_date', 'issued_via', 'status', 'pdf_path'];
+
+    protected function casts(): array
+    {
+        return ['issue_date' => 'date:Y-m-d'];
+    }
+
+    public function shipment(): BelongsTo
+    {
+        return $this->belongsTo(DeliveryShipment::class);
+    }
+
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
+    }
+
+    public function getHasPdfAttribute(): bool
+    {
+        return (bool) $this->pdf_path;
+    }
 }
