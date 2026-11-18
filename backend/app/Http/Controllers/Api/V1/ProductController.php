@@ -57,7 +57,7 @@ class ProductController extends Controller
             ];
         });
 
-        return response()->json(['data' => $products, 'warehouse_id' => $warehouse?->id]);
+        return response()->json(['data' => $products, 'warehouse_id' => $warehouse?->id, 'pilot_mode' => (bool) config('lions.pilot_mode')]);
     }
 
     public function store(Request $request): JsonResponse

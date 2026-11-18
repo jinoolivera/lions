@@ -11,6 +11,8 @@ use App\Http\Controllers\Api\V1\InventoryMovementController;
 use App\Http\Controllers\Api\V1\ProductCategoryController;
 use App\Http\Controllers\Api\V1\ProductController;
 use App\Http\Controllers\Api\V1\ProductMasterController;
+use App\Http\Controllers\Api\V1\PilotSaleNoteController;
+use App\Http\Controllers\Api\V1\PilotGuideController;
 use App\Http\Controllers\Api\V1\PurchaseOrderController;
 use App\Http\Controllers\Api\V1\ReportController;
 use App\Http\Controllers\Api\V1\SaleDocumentWorkflowController;
@@ -88,6 +90,8 @@ Route::middleware(['auth:sanctum', 'branch.staff'])->prefix('v1')->group(functio
     Route::post('/cash/sessions', [SalesController::class, 'openSession']);
     Route::post('/cash/sessions/{cashSession}/close', [SalesController::class, 'closeSession']);
     Route::get('/sales', [SalesController::class, 'index']);
+    Route::get('/pilot-notes', [PilotSaleNoteController::class, 'index']);
+    Route::post('/pilot-notes', [PilotSaleNoteController::class, 'store']);
     Route::get('/sales/archive', [SalesController::class, 'archive']);
     Route::post('/sales', [SalesController::class, 'create']);
     Route::get('/sales/{sale}', [SalesController::class, 'show']);
@@ -102,6 +106,8 @@ Route::middleware(['auth:sanctum', 'branch.staff'])->prefix('v1')->group(functio
     Route::post('/sales/{sale}/shipments/{shipment}/guide/pdf', [DeliveryGuidePdfController::class, 'upload']);
     Route::get('/sales/{sale}/shipments/{shipment}/guide/link', [DeliveryGuidePdfController::class, 'link']);
     Route::post('/sales/{sale}/shipments/{shipment}/guide/email', [DeliveryGuidePdfController::class, 'email'])->middleware('throttle:10,1');
+    Route::get('/sales/{sale}/shipments/{shipment}/pilot-guide/link', [PilotGuideController::class, 'link']);
+    Route::post('/sales/{sale}/shipments/{shipment}/pilot-guide/email', [PilotGuideController::class, 'email'])->middleware('throttle:10,1');
     Route::post('/sales/{sale}/ticket/email', [SalesController::class, 'emailTicket'])->middleware('throttle:10,1');
     Route::get('/sales/{sale}/ticket/link', [SalesController::class, 'ticketLink'])->middleware('throttle:30,1');
     Route::post('/sales/{sale}/sunat-document', [SalesController::class, 'issueSunatDocument']);

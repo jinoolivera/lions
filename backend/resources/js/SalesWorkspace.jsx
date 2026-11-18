@@ -25,10 +25,11 @@ function SaleTicketDetail({ sale, warehouse, onTicket }) {
     </div>;
 }
 
-function ShipmentGuideRow({ sale, shipment, busy, onDispatch, onUpload, onView, onShare, onWhatsApp, onEmail }) {
+function ShipmentGuideRow({ sale, shipment, busy, onDispatch, onUpload, onView, onShare, onWhatsApp, onEmail, pilotMode, onPilotView, onPilotShare, onPilotWhatsApp, onPilotEmail }) {
     const guide = shipment.guide;
     return <div className="sales-workspace-guide-row">
         <div className="sales-workspace-document"><strong>Despacho #{shipment.id}</strong><span>{shipment.status === 'prepared' ? 'Preparado' : shipment.status === 'dispatched' ? 'Despachado' : 'Cancelado'} · {shipment.lines?.map((line) => `${line.sale_line?.product_name_snapshot || 'Producto'} × ${Number(line.quantity)}`).join(', ')}</span><strong>{guide ? `GRE ${guide.series}-${guide.number}` : shipment.guide_required ? 'GRE pendiente' : 'Sin GRE requerida'}</strong>{shipment.status === 'prepared' && <button type="button" className="icon-btn" onClick={() => onDispatch(sale, shipment)}>Confirmar despacho</button>}</div>
+        {pilotMode && !guide && <div className="sales-workspace-guide-actions"><strong>Simulación interna · sin validez tributaria</strong><button type="button" className="button light" onClick={() => onPilotView(sale, shipment)}>Ver PDF de prueba</button><button type="button" className="button light" onClick={() => onPilotShare(sale, shipment)}>Compartir PDF</button><button type="button" className="button light" onClick={() => onPilotWhatsApp(sale, shipment)}>WhatsApp</button><form onSubmit={(event) => onPilotEmail(event, sale, shipment)}><input type="email" name="email" aria-label="Correo para simulación" placeholder="Correo del destinatario" defaultValue={sale.customer?.email || ''} required /><button type="submit" className="button" disabled={busy}>Enviar correo</button></form><small>Para un traslado que exige GRE, emítela en SUNAT y adjunta aquí el documento oficial antes de confirmar el despacho.</small></div>}
         {guide && <div className="sales-workspace-guide-actions">{guide.has_pdf ? <>
             <button type="button" className="button light" onClick={() => onView(sale, shipment)}>Ver PDF</button>
             <button type="button" className="button light" onClick={() => onShare(sale, shipment)}>Compartir PDF</button>
@@ -39,7 +40,7 @@ function ShipmentGuideRow({ sale, shipment, busy, onDispatch, onUpload, onView, 
     </div>;
 }
 
-export default function SalesWorkspace({ warehouses, branches, warehouseId, customers, user, sunatMode, salesRevision, onTicket, onShipment }) {
+export default function SalesWorkspace({ warehouses, branches, warehouseId, customers, user, sunatMode, pilotMode, salesRevision, onTicket, onShipment }) {
     const [filters, setFilters] = useState({ q: '', status: '', document: '', from: '', to: '', page: 1 });
     const [archiveWarehouseId, setArchiveWarehouseId] = useState(warehouseId);
     const [archive, setArchive] = useState({ data: [], meta: { current_page: 1, last_page: 1, total: 0 } });
@@ -124,6 +125,28 @@ export default function SalesWorkspace({ warehouses, branches, warehouseId, cust
             else window.location.href = `https://wa.me/?text=${encodeURIComponent(text)}`;
         } catch (error) { popup?.close(); setMessageOk(false); setMessage(errorText(error)); }
     }
+    const pilotGuideApi = (selectedSale, shipment) => `/api/v1/sales/${selectedSale.id}/shipments/${shipment.id}/pilot-guide`;
+    const pilotGuideUrl = async (selectedSale, shipment) => (await axios.get(`${pilotGuideApi(selectedSale, shipment)}/link`)).data.url;
+    const pilotEmail = (event, selectedSale, shipment) => submit(event, (form) => axios.post(`${pilotGuideApi(selectedSale, shipment)}/email`, { email: form.get('email') }));
+    async function pilotView(selectedSale, shipment) {
+        const popup = window.open('', '_blank');
+        try { const url = await pilotGuideUrl(selectedSale, shipment); if (popup) popup.location.href = url; else window.location.href = url; }
+        catch (error) { popup?.close(); setMessageOk(false); setMessage(errorText(error)); }
+    }
+    async function pilotShare(selectedSale, shipment) {
+        try {
+            const response = await fetch(await pilotGuideUrl(selectedSale, shipment));
+            if (!response.ok) throw new Error('No se pudo descargar el PDF de prueba.');
+            const file = new File([await response.blob()], `SIMULACION-ENVIO-${shipment.id}.pdf`, { type: 'application/pdf' });
+            if (navigator.canShare?.({ files: [file] })) await navigator.share({ files: [file], title: 'Simulación interna de envío · sin validez tributaria' });
+            else { const url = URL.createObjectURL(file); const link = document.createElement('a'); link.href = url; link.download = file.name; link.click(); setTimeout(() => URL.revokeObjectURL(url), 1000); setMessageOk(true); setMessage('PDF descargado para compartir.'); }
+        } catch (error) { if (error.name !== 'AbortError') { setMessageOk(false); setMessage(errorText(error)); } }
+    }
+    async function pilotWhatsApp(selectedSale, shipment) {
+        const popup = window.open('', '_blank');
+        try { const url = await pilotGuideUrl(selectedSale, shipment); const text = `U.LIONS · SIMULACIÓN interna de envío #${shipment.id} · SIN VALIDEZ TRIBUTARIA. PDF: ${url}`; if (popup) popup.location.href = `https://wa.me/?text=${encodeURIComponent(text)}`; else window.location.href = `https://wa.me/?text=${encodeURIComponent(text)}`; }
+        catch (error) { popup?.close(); setMessageOk(false); setMessage(errorText(error)); }
+    }
 
     return <div className="sales-workspace">
         <div className="panel sales-workspace-search">
@@ -166,7 +189,7 @@ export default function SalesWorkspace({ warehouses, branches, warehouseId, cust
                 {document?.adjustments?.map((note) => <div className="sales-workspace-document" key={note.id}><strong>{note.adjustment_type === 'credit_note' ? 'Nota de crédito' : 'Nota de débito'} {note.series}-{note.number}</strong><span>{note.issue_date} · {note.reason} · registro externo</span><strong>{money(note.total_cents)}</strong>{note.has_pdf && <a className="icon-btn" href={`/api/v1/sales/${sale.id}/documents/${document.id}/adjustments/${note.id}/pdf`}>PDF</a>}</div>)}
                 {user.role === 'admin' && document?.environment === 'external' && sunatMode === 'manual' && <form className="sales-workspace-form" onSubmit={(event) => submit(event, (form) => { const payload = new FormData(); for (const key of ['adjustment_type', 'series', 'number', 'issue_date', 'reason', 'issued_via', 'pdf']) if (form.get(key) && (key !== 'pdf' || form.get(key).name)) payload.append(key, form.get(key)); payload.append('total_cents', String(Math.round(Number(form.get('total')) * 100))); return axios.post(`/api/v1/sales/${sale.id}/documents/${document.id}/adjustments`, payload); })}><strong>Registrar nota emitida en SOL/PSE</strong><select name="adjustment_type"><option value="credit_note">Nota de crédito</option><option value="debit_note">Nota de débito</option></select><input name="series" placeholder="Serie F/B" maxLength="4" required /><input name="number" placeholder="Número" inputMode="numeric" required /><input name="issue_date" type="date" max={new Date().toLocaleDateString('en-CA')} required /><input name="total" type="number" min="0" step="0.01" placeholder="Importe S/" required /><input name="reason" minLength="5" maxLength="500" placeholder="Motivo de la nota" required /><select name="issued_via"><option value="see_sol">SUNAT SOL</option><option value="pse">PSE</option></select><label>PDF de la nota <input name="pdf" type="file" accept="application/pdf" /></label><button className="button light" disabled={busy}>Vincular nota</button></form>}
             </div>
-            <div className="panel"><div className="toolbar"><strong>Envíos y guías de remisión</strong><span className="muted push">Una guía por despacho cuando corresponda</span></div>{sale.shipments?.map((shipment) => <ShipmentGuideRow key={shipment.id} sale={sale} shipment={shipment} busy={busy} onDispatch={openShipment} onUpload={uploadGuide} onView={viewGuide} onShare={shareGuide} onWhatsApp={shareGuideWhatsApp} onEmail={emailGuide} />)}{!sale.shipments?.length && <p className="muted">Sin envíos preparados.</p>}{!['cancelled', 'returned'].includes(sale.status) && canPrepareShipment && <button type="button" className="button light" onClick={() => openShipment(sale)}>Preparar envío</button>}</div>
+            <div className="panel"><div className="toolbar"><strong>Envíos y guías de remisión</strong><span className="muted push">Una guía por despacho cuando corresponda</span></div>{sale.shipments?.map((shipment) => <ShipmentGuideRow key={shipment.id} sale={sale} shipment={shipment} busy={busy} onDispatch={openShipment} onUpload={uploadGuide} onView={viewGuide} onShare={shareGuide} onWhatsApp={shareGuideWhatsApp} onEmail={emailGuide} pilotMode={pilotMode} onPilotView={pilotView} onPilotShare={pilotShare} onPilotWhatsApp={pilotWhatsApp} onPilotEmail={pilotEmail} />)}{!sale.shipments?.length && <p className="muted">Sin envíos preparados.</p>}{!['cancelled', 'returned'].includes(sale.status) && canPrepareShipment && <button type="button" className="button light" onClick={() => openShipment(sale)}>Preparar envío</button>}</div>
                     </div>}
                 </div>
                 <div className="modal-foot"><button type="button" className="button light" onClick={closeDetail}>Cancelar</button></div>

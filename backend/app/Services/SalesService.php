@@ -6,6 +6,7 @@ use App\Models\CashSession;
 use App\Models\Customer;
 use App\Models\Product;
 use App\Models\ProductPresentation;
+use App\Models\PilotSaleNote;
 use App\Models\Sale;
 use App\Models\User;
 use App\Models\Warehouse;
@@ -26,6 +27,7 @@ class SalesService
         $normalized['price_list'] = $data['price_list'] ?? 'retail';
         $normalized['warehouse_location_id'] = $data['warehouse_location_id'] ?? null;
         $normalized['requested_document_type'] = $data['requested_document_type'] ?? null;
+        $normalized['pilot_note_id'] = $data['pilot_note_id'] ?? null;
         $normalized['lines'] = collect($data['lines'])->map(fn ($line) => [
             'product_id' => (int) $line['product_id'], 'presentation_id' => (int) $line['presentation_id'], 'quantity' => (string) $line['quantity'], 'discount_cents' => (int) ($line['discount_cents'] ?? 0), 'unit_price_cents' => isset($line['unit_price_cents']) ? (int) $line['unit_price_cents'] : null,
         ])->all();
@@ -47,6 +49,10 @@ class SalesService
             $session = CashSession::query()->where('status', 'open')->lockForUpdate()->findOrFail($data['cash_session_id']);
             $seller = User::query()->findOrFail($userId);
             $warehouse = Warehouse::query()->with('locations')->findOrFail($session->warehouse_id);
+            $pilotNote = isset($data['pilot_note_id']) ? PilotSaleNote::query()->lockForUpdate()->findOrFail($data['pilot_note_id']) : null;
+            if ($pilotNote && (! config('lions.pilot_mode') || $pilotNote->status !== 'pending' || (int) $pilotNote->warehouse_id !== (int) $warehouse->id)) {
+                throw ValidationException::withMessages(['pilot_note_id' => 'La nota piloto ya fue regularizada o corresponde a otra tienda.']);
+            }
             $customer = isset($data['customer_id']) ? Customer::query()->where('is_active', true)->lockForUpdate()->findOrFail($data['customer_id']) : null;
             $location = isset($data['warehouse_location_id'])
                 ? $warehouse->locations->firstWhere('id', (int) $data['warehouse_location_id'])
@@ -89,6 +95,11 @@ class SalesService
                 $computed[] = compact('product', 'presentation', 'quantity', 'unitPrice', 'lineTotal', 'discount');
             }
             $paid = array_sum(array_column($data['payments'] ?? [], 'amount_cents'));
+            if ($pilotNote && (count($computed) !== 1 || BigDecimal::of($pilotNote->quantity)->compareTo($computed[0]['quantity']) !== 0 ||
+                $total !== BigDecimal::of($pilotNote->quantity)->multipliedBy((string) $pilotNote->unit_price_cents)->toScale(0, RoundingMode::HALF_UP)->toInt() ||
+                $paid !== $total || count($data['payments'] ?? []) !== 1 || $data['payments'][0]['method'] !== $pilotNote->payment_method)) {
+                throw ValidationException::withMessages(['pilot_note_id' => 'La venta debe coincidir con la cantidad, precio y pago anotados.']);
+            }
             if ($paid > $total) {
                 throw ValidationException::withMessages(['payments' => 'La suma de pagos excede el total de la venta.']);
             }
@@ -141,6 +152,7 @@ class SalesService
             }
             $cashPaid = collect($data['payments'] ?? [])->where('method', 'cash')->sum('amount_cents');
             $session->increment('expected_cents', $cashPaid);
+            if ($pilotNote) $pilotNote->forceFill(['sale_id' => $sale->id, 'status' => 'regularized'])->save();
 
             return $sale->load(['lines', 'payments']);
         }, 3);

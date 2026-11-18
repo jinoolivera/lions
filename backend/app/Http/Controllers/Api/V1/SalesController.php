@@ -197,6 +197,7 @@ class SalesController extends Controller
             'warehouse_location_id' => ['sometimes', 'integer', 'exists:warehouse_locations,id'],
             'due_date' => ['nullable', 'date', 'after_or_equal:today'],
             'requested_document_type' => ['nullable', 'in:invoice,receipt'],
+            'pilot_note_id' => ['nullable', 'integer', 'exists:pilot_sale_notes,id'],
             'price_list' => ['sometimes', 'in:retail,wholesale'],
             'lines.*.product_id' => ['required', 'integer', 'exists:products,id'], 'lines.*.presentation_id' => ['required', 'integer', 'exists:product_presentations,id'],
             'lines.*.quantity' => ['required', 'numeric', 'gt:0', 'max:999999999999'],

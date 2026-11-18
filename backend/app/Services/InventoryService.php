@@ -138,7 +138,7 @@ class InventoryService
             $physical = BigDecimal::of($balance->physical_quantity)->toScale(6);
             $reserved = BigDecimal::of($balance->reserved_quantity)->toScale(6);
             $next = $physical->plus($delta)->toScale(6, RoundingMode::UNNECESSARY);
-            if ($next->isNegative() || $next->compareTo($reserved) < 0) {
+            if (($type !== 'sale' || ! config('lions.pilot_mode')) && ($next->isNegative() || $next->compareTo($reserved) < 0)) {
                 throw ValidationException::withMessages(['quantity' => 'El movimiento dejaría el stock disponible en negativo.']);
             }
 
@@ -150,7 +150,7 @@ class InventoryService
                 ? null
                 : BigDecimal::of($balance->average_unit_cost_cents)->toScale(6);
             if ($inbound && $unitCostBaseCents !== null && $next->isPositive()) {
-                if ($averageCost === null) {
+                if ($averageCost === null || ! $physical->isPositive()) {
                     // Opening stock without a recorded cost is valued at the first known receipt cost.
                     $averageCost = $unitCostBaseCents;
                 } else {

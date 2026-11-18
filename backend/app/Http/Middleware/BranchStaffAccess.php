@@ -23,9 +23,9 @@ class BranchStaffAccess
         $allowedGet = [
             'api/v1/branches', 'api/v1/sunat/mode', 'api/v1/products',
             'api/v1/product-categories', 'api/v1/product-masters', 'api/v1/customers',
-            'api/v1/warehouses', 'api/v1/cash/sessions', 'api/v1/sales', 'api/v1/sales/archive',
+            'api/v1/warehouses', 'api/v1/cash/sessions', 'api/v1/sales', 'api/v1/sales/archive', 'api/v1/pilot-notes',
         ];
-        $allowedPost = ['api/v1/customers', 'api/v1/cash/sessions', 'api/v1/sales'];
+        $allowedPost = ['api/v1/customers', 'api/v1/cash/sessions', 'api/v1/sales', 'api/v1/pilot-notes'];
         $saleId = $request->route('sale');
         $saleId = $saleId instanceof Sale ? $saleId->id : $saleId;
         $cashSessionId = $request->route('cashSession');
@@ -35,6 +35,7 @@ class BranchStaffAccess
 
         $permitted = ($method === 'GET' && in_array($path, $allowedGet, true))
             || ($method === 'POST' && in_array($path, $allowedPost, true))
+            || ($user->role === 'manager' && in_array($method, ['POST', 'PATCH'], true) && preg_match('#^api/v1/(products(?:/\d+(?:/presentations(?:/\d+)?)?)?|product-categories(?:/\d+)?|product-brands(?:/\d+)?|product-units(?:/\d+)?)$#', $path))
             || ($method === 'GET' && preg_match('#^api/v1/sales/\d+/ticket/link$#', $path))
             || ($method === 'GET' && preg_match('#^api/v1/sales/\d+(?:/documents/\d+(?:/pdf|/adjustments/\d+/pdf))?$#', $path))
             || ($method === 'PATCH' && preg_match('#^api/v1/sales/\d+/billing$#', $path))
@@ -42,6 +43,8 @@ class BranchStaffAccess
             || ($method === 'POST' && preg_match('#^api/v1/sales/\d+/shipments(?:/\d+/(?:dispatch|cancel))?$#', $path))
             || ($method === 'POST' && preg_match('#^api/v1/sales/\d+/shipments/\d+/guide/(?:pdf|email)$#', $path))
             || ($method === 'GET' && preg_match('#^api/v1/sales/\d+/shipments/\d+/guide/link$#', $path))
+            || ($method === 'GET' && preg_match('#^api/v1/sales/\d+/shipments/\d+/pilot-guide/link$#', $path))
+            || ($method === 'POST' && preg_match('#^api/v1/sales/\d+/shipments/\d+/pilot-guide/email$#', $path))
             || ($method === 'POST' && preg_match('#^api/v1/sales/\d+/payments$#', $path))
             || ($user->role === 'manager' && $method === 'POST' && preg_match('#^api/v1/sales/\d+/(returns|cancel)$#', $path))
             || ($method === 'POST' && preg_match('#^api/v1/cash/sessions/\d+/close$#', $path));
