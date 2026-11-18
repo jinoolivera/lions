@@ -293,3 +293,26 @@ tbody tr:hover{background:#fcfaf5}
   .sales-workspace-ticket-actions .button { width: 100%; justify-content: center; }
   .sales-workspace-guide-actions > .button, .sales-workspace-guide-actions form > .button { flex: 1 1 100%; justify-content: center; }
 }
+.tpv-sales-panel .toolbar { flex-wrap: wrap; }
+.tpv-sales-panel .table-wrap { overflow-x: visible; }
+.tpv-sales-panel table, .tpv-sales-panel tbody { display: block; width: 100%; }
+.tpv-sales-panel thead { display: none; }
+.tpv-sales-panel tbody { display: grid; gap: 16px; padding: 18px; }
+.tpv-sales-panel tbody tr { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px 20px; align-items: start; padding: 20px; border: 1px solid #e2e5dc; border-radius: 16px; background: #fcfbf7; }
+.tpv-sales-panel tbody td { display: block; min-width: 0; padding: 0; border: 0; overflow-wrap: anywhere; font-size: 15px; line-height: 1.45; white-space: normal; }
+.tpv-sales-panel tbody td::before { display: block; margin-bottom: 6px; color: #748178; font-size: 11px; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; }
+.tpv-sales-panel tbody td:nth-child(1)::before { content: 'Número'; }
+.tpv-sales-panel tbody td:nth-child(2)::before { content: 'Fecha'; }
+.tpv-sales-panel tbody td:nth-child(3)::before { content: 'Cliente'; }
+.tpv-sales-panel tbody td:nth-child(4)::before { content: 'Pagado / saldo'; }
+.tpv-sales-panel tbody td:nth-child(5)::before { content: 'Total'; }
+.tpv-sales-panel tbody td:nth-child(6)::before { content: 'Comprobante'; }
+.tpv-sales-panel tbody td:nth-child(7)::before { content: 'Estado'; }
+.tpv-sales-panel tbody td:nth-child(8)::before { content: 'Acciones'; }
+.tpv-sales-panel tbody td:first-child strong { font-size: 16px; }
+.tpv-sales-panel tbody td[colspan] { grid-column: 1 / -1; }
+.tpv-sales-panel tbody td[colspan]::before { content: none; }
+.tpv-sales-panel .actions { flex-wrap: wrap; white-space: normal; }
+.tpv-sales-panel .icon-btn { white-space: normal; }
+@media (max-width: 1180px) { .tpv-sales-panel tbody tr { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 560px) { .tpv-sales-panel tbody { padding: 12px; gap: 12px; } .tpv-sales-panel tbody tr { grid-template-columns: minmax(0, 1fr); padding: 17px; gap: 15px; } .tpv-sales-panel tbody td { font-size: 16px; } }
