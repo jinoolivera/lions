@@ -15,6 +15,23 @@ class PilotFlowTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_quick_freeform_note_is_timestamped_and_scoped_to_its_store(): void
+    {
+        config()->set('lions.pilot_mode', true);
+        $branch = Branch::query()->where('code', 'LIONS_A')->firstOrFail();
+        $warehouse = Warehouse::query()->where('branch_id', $branch->id)->firstOrFail();
+        $manager = User::factory()->create(['role' => 'manager']);
+        $manager->branches()->attach($branch->id);
+        $this->actingAs($manager, 'web');
+        $note = $this->postJson('/api/v1/pilot-notes', [
+            'warehouse_id' => $warehouse->id,
+            'body' => '2 pulseras doradas, S/ 20 c/u, efectivo',
+        ])->assertCreated()->assertJsonPath('data.status', 'pending')->json('data');
+        $this->assertNotEmpty($note['sold_at']);
+        $this->getJson('/api/v1/pilot-notes?warehouse_id='.$warehouse->id)->assertOk()
+            ->assertJsonPath('data.0.body', '2 pulseras doradas, S/ 20 c/u, efectivo');
+    }
+
     public function test_store_manager_shares_master_catalog_and_regularizes_note_once_without_stock(): void
     {
         config()->set('lions.pilot_mode', true);
